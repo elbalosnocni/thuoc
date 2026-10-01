@@ -1,0 +1,24 @@
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec";
+
+// Hàm lấy danh sách sản phẩm đổ vào bảng hiển thị
+async function fetchProducts() {
+  try {
+    const response = await fetch(`${GAS_API_URL}?action=getProducts`);
+    const products = await response.json();
+    
+    // Render dữ liệu ra bảng HTML (giống hình ảnh 1 của bạn)
+    console.log(products);
+  } catch (error) {
+    console.error("Lỗi lấy dữ liệu:", error);
+  }
+}
+
+// Hàm thêm sản phẩm mới
+async function createProduct(productData) {
+  const response = await fetch(GAS_API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "addProduct", ...productData })
+  });
+  const result = await response.json();
+  if(result.status === "success") alert("Thêm thành công!");
+}
