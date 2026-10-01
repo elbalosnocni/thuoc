@@ -1,234 +1,364 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống Quản lý Nhập Xuất Tồn Thuốc</title>
-    <!-- Tailwind CSS & Google Fonts -->
-    <script src="https://jsdelivr.net"></script>
-    <link href="https://googleapis.com" rel="stylesheet">
-    <!-- Chart.js cho Biểu đồ -->
-    <script src="https://jsdelivr.net"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý cấp phát thuốc</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    .table-wrap { overflow-x: auto; }
+    .toast { animation: toastIn .2s ease-out; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
 </head>
-<body class="flex h-screen overflow-hidden">
-
-    <!-- SIDEBAR (Menu bên trái) -->
-    <aside class="w-64 bg-white border-r border-slate-100 flex flex-col justify-between p-4">
-        <div>
-            <div class="flex items-center gap-3 px-2 py-3 border-b border-slate-50 mb-6">
-                <i data-lucide="package" class="text-blue-600 w-6 h-6"></i>
-                <span class="font-bold text-slate-800 text-lg">Nhập Xuất Tồn</span>
-            </div>
-            <nav class="space-y-1">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-blue-50 text-blue-600 transition">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
-                </button>
-                <button onclick="switchTab('products')" id="btn-products" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-slate-600 hover:bg-slate-50 transition">
-                    <i data-lucide="box" class="w-5 h-5"></i> Sản phẩm
-                </button>
-                <button onclick="switchTab('export')" id="btn-export" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-slate-600 hover:bg-slate-50 transition">
-                    <i data-lucide="arrow-up-right" class="w-5 h-5"></i> Cấp phát (FIFO)
-                </button>
-            </nav>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="min-h-screen flex">
+    <aside class="w-64 shrink-0 bg-white border-r border-slate-200 hidden md:flex flex-col">
+      <div class="px-5 py-5 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center"><i data-lucide="pill" class="w-5 h-5"></i></div>
+          <div>
+            <div class="font-bold">Quản lý thuốc</div>
+            <div class="text-xs text-slate-400">Nhập - xuất - tồn</div>
+          </div>
         </div>
-        <div class="p-2 bg-slate-50 rounded-xl flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">AD</div>
-            <div>
-                <p class="text-xs font-semibold text-slate-700">Xin chào, Admin</p>
-                <p class="text-[10px] text-slate-500">Quản trị viên</p>
-            </div>
-        </div>
+      </div>
+      <nav class="p-3 space-y-1 flex-1">
+        <button class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+        <button class="nav-btn" data-tab="products"><i data-lucide="package"></i><span>Sản phẩm</span></button>
+        <button class="nav-btn" data-tab="import"><i data-lucide="package-plus"></i><span>Nhập kho</span></button>
+        <button class="nav-btn" data-tab="export"><i data-lucide="package-minus"></i><span>Cấp phát thuốc</span></button>
+        <button class="nav-btn" data-tab="history"><i data-lucide="history"></i><span>Lịch sử cấp phát</span></button>
+        <button class="nav-btn" data-tab="catalog"><i data-lucide="list"></i><span>Danh mục</span></button>
+        <button class="nav-btn" data-tab="audit"><i data-lucide="shield-check"></i><span>Audit Log</span></button>
+      </nav>
+      <div class="p-4 border-t border-slate-100">
+        <div class="text-xs text-slate-400">Backend</div>
+        <div id="api-status" class="text-sm font-medium text-amber-600 mt-1">Đang kiểm tra...</div>
+      </div>
     </aside>
 
-    <!-- MAIN CONTENT (Khung hiển thị chính) -->
-    <main class="flex-1 flex flex-col overflow-y-auto">
-        
-        <!-- TOPBAR -->
-        <header class="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-8">
-            <h1 id="page-title" class="font-bold text-xl text-slate-800">Dashboard tổng quan</h1>
-            <div class="flex items-center gap-4">
-                <button class="p-2 hover:bg-slate-50 rounded-lg text-slate-500"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+    <main class="flex-1 min-w-0">
+      <header class="h-16 bg-white border-b border-slate-200 px-4 md:px-7 flex items-center justify-between sticky top-0 z-20">
+        <div>
+          <h1 id="page-title" class="font-bold text-lg md:text-xl">Dashboard tổng quan</h1>
+          <div class="text-xs text-slate-400 hidden md:block">Theo dõi cấp phát và tồn kho thuốc</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="refresh-btn" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Làm mới</span></button>
+        </div>
+      </header>
+
+      <div class="md:hidden bg-white border-b border-slate-200 p-2 overflow-x-auto flex gap-1" id="mobile-nav"></div>
+      <div class="p-4 md:p-7 space-y-6">
+
+        <!-- DASHBOARD -->
+        <section id="tab-dashboard" class="tab-panel space-y-6">
+          <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+            <div class="card"><div class="label">Sản phẩm</div><div id="stat-products" class="stat">0</div><div class="hint">Danh mục thuốc</div></div>
+            <div class="card"><div class="label">Tồn kho</div><div id="stat-stock" class="stat">0</div><div class="hint">Tổng số lượng còn</div></div>
+            <div class="card"><div class="label">Giá trị tồn</div><div id="stat-value" class="stat text-xl">0 đ</div><div class="hint">Theo đơn giá nhập</div></div>
+            <div class="card"><div class="label">Cấp phát hôm nay</div><div id="stat-orders" class="stat">0</div><div class="hint"><span id="stat-qty">0</span> đơn vị</div></div>
+            <div class="card"><div class="label">Cảnh báo</div><div id="stat-warning" class="stat text-rose-600">0</div><div id="stat-warning-detail" class="hint">Sắp hết / hết hạn</div></div>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-5">
+            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5">
+              <div class="flex items-center justify-between mb-4"><div class="font-bold">Tồn kho theo thuốc</div><button onclick="switchTab('products')" class="text-xs text-blue-600">Xem danh mục →</button></div>
+              <div class="h-72"><canvas id="stock-chart"></canvas></div>
             </div>
-        </header>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5">
+              <div class="font-bold mb-4">Hoạt động gần đây</div>
+              <div id="recent-list" class="space-y-3 max-h-72 overflow-auto scrollbar"><div class="text-sm text-slate-400">Đang tải...</div></div>
+            </div>
+          </div>
 
-        <!-- CONTAINER CHỨA NỘI DUNG CÁC TAB -->
-        <div class="p-8">
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-2xl border border-amber-200 p-5"><div class="flex items-center justify-between"><b>≤ 30 ngày</b><span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs">Sắp hết hạn</span></div><div id="stat-expiring" class="text-3xl font-bold mt-3">0</div></div>
+            <div class="bg-white rounded-2xl border border-rose-200 p-5"><div class="flex items-center justify-between"><b>Đã hết hạn</b><span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 text-xs">Không cấp phát</span></div><div id="stat-expired" class="text-3xl font-bold mt-3">0</div></div>
+            <div class="bg-white rounded-2xl border border-orange-200 p-5"><div class="flex items-center justify-between"><b>Tồn thấp</b><span class="px-2 py-1 rounded-full bg-orange-50 text-orange-700 text-xs">Theo ngưỡng</span></div><div id="stat-low" class="text-3xl font-bold mt-3">0</div></div>
+          </div>
+        </section>
 
-            <!-- TAB 1: DASHBOARD -->
-            <section id="tab-dashboard" class="space-y-6">
-                <!-- Thẻ thống kê đầu trang giống mẫu -->
-                <div class="grid grid-cols-4 gap-5">
-                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-slate-400 text-xs font-medium">Doanh thu tháng này</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">455.000 đ</h3>
-                            <span class="text-xs text-emerald-500 font-semibold">+2.0% so với tháng trước</span>
-                        </div>
-                        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="trending-up"></i></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-slate-400 text-xs font-medium">Lợi nhuận tháng này</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">185.000 đ</h3>
-                            <span class="text-xs text-rose-500 font-semibold">-55.4% so với tháng trước</span>
-                        </div>
-                        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><i data-lucide="dollar-sign"></i></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-slate-400 text-xs font-medium">Đơn hàng hôm nay</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">6</h3>
-                            <span class="text-xs text-emerald-500 font-semibold">+500.0% so với hôm qua</span>
-                        </div>
-                        <div class="p-3 bg-purple-50 text-purple-600 rounded-xl"><i data-lucide="shopping-bag"></i></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-slate-400 text-xs font-medium">Giá trị tồn kho</p>
-                            <h3 class="text-2xl font-bold text-slate-800 mt-1">3.020.000 đ</h3>
-                            <span class="text-xs text-slate-500">Thống kê 13 sản phẩm</span>
-                        </div>
-                        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i data-lucide="layers"></i></div>
-                    </div>
-                </div>
+        <!-- PRODUCTS -->
+        <section id="tab-products" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div><h2 class="font-bold">Danh mục sản phẩm</h2><p class="text-xs text-slate-400 mt-1">Dữ liệu từ tab <b>Sản phẩm</b></p></div>
+            <input id="product-search" class="input md:w-80" placeholder="Tìm mã, tên, hoạt chất...">
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap">
+            <table class="min-w-[900px] w-full text-sm"><thead><tr class="thead"><th>Mã SP</th><th>Tên sản phẩm</th><th>Hoạt chất</th><th>Đơn vị</th><th>Nhóm</th><th>Giá nhập</th><th>Tồn tối thiểu</th><th>Trạng thái</th></tr></thead><tbody id="products-tbody"></tbody></table>
+          </div>
+        </section>
 
-                <!-- Khu vực chứa biểu đồ đồ thị -->
-                <div class="grid grid-cols-3 gap-6">
-                    <div class="col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                        <h4 class="font-bold text-sm text-slate-700 mb-4">Nhập - Xuất - Tồn</h4>
-                        <div class="h-64"><canvas id="chart-trends"></canvas></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <h4 class="font-bold text-sm text-slate-700 mb-4">Hoạt động gần đây</h4>
-                            <div class="space-y-4">
-                                <div class="flex items-center justify-between text-xs">
-                                    <div class="flex items-center gap-2 text-emerald-600 font-medium">
-                                        <i data-lucide="arrow-down-left" class="w-4 h-4"></i> Nhập 2 sản phẩm
-                                    </div>
-                                    <span class="text-slate-400">10/9/2025</span>
-                                </div>
-                                <div class="flex items-center justify-between text-xs">
-                                    <div class="flex items-center gap-2 text-rose-600 font-medium">
-                                        <i data-lucide="arrow-up-right" class="w-4 h-4"></i> Xuất 3 sản phẩm
-                                    </div>
-                                    <span class="text-slate-400">10/9/2025</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+        <!-- IMPORT -->
+        <section id="tab-import" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <div class="flex items-start gap-3 mb-5"><div class="p-2 rounded-lg bg-emerald-50 text-emerald-600"><i data-lucide="package-plus"></i></div><div><h2 class="font-bold">Nhập kho</h2><p class="text-sm text-slate-500">Dữ liệu nhập kho được lưu theo từng lô và hạn sử dụng.</p></div></div>
+            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">Phiên bản backend hiện tại đã chuẩn hóa tab <b>Nhập kho</b>. Chức năng ghi phiếu nhập sẽ được bật sau khi API nhập kho được kết nối; tránh nhập trực tiếp bằng frontend khi chưa có kiểm soát giao dịch.</div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Ngày nhập</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lô</th><th>SL nhập</th><th>SL còn</th><th>HSD</th><th>Đơn giá</th><th>Nhà cung cấp</th></tr></thead><tbody id="imports-tbody"></tbody></table></div>
+        </section>
 
-            <!-- TAB 2: DANH SÁCH SẢN PHẨM -->
-            <section id="tab-products" class="hidden bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                <div class="p-5 border-b border-slate-50 flex items-center justify-between gap-4">
-                    <div class="flex flex-1 gap-3">
-                        <input type="text" placeholder="Tìm kiếm sản phẩm..." class="w-64 px-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500">
-                    </div>
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Thêm sản phẩm
-                    </button>
-                </div>
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-100">
-                            <th class="p-4">Mã SP</th>
-                            <th class="p-4">Tên sản phẩm</th>
-                            <th class="p-4">Đơn vị</th>
-                            <th class="p-4">Giá nhập</th>
-                            <th class="p-4">Giá xuất</th>
-                            <th class="p-4">Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody id="product-list-tbody" class="text-slate-600 text-sm divide-y divide-slate-50">
-                        <!-- Code JS sẽ tự đổ dữ liệu sản phẩm vào đây -->
-                    </tbody>
-                </table>
-            </section>
+        <!-- EXPORT -->
+        <section id="tab-export" class="tab-panel hidden">
+          <div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-5 md:p-7">
+            <div class="flex items-start gap-3 mb-6"><div class="p-3 rounded-xl bg-blue-50 text-blue-600"><i data-lucide="package-minus"></i></div><div><h2 class="font-bold text-lg">Cấp phát thuốc theo FEFO</h2><p class="text-sm text-slate-500 mt-1">Hệ thống tự chọn lô có hạn sử dụng gần nhất trước. Không cấp phát lô đã hết hạn.</p></div></div>
+            <form id="export-form" class="grid md:grid-cols-2 gap-4">
+              <div class="md:col-span-2"><label class="field-label">Thuốc</label><select id="exp-code" class="input" required><option value="">-- Chọn thuốc --</option></select><div id="selected-stock" class="text-xs text-slate-400 mt-1"></div></div>
+              <div><label class="field-label">Số lượng cấp phát</label><input id="exp-qty" class="input" type="number" min="0.01" step="any" required></div>
+              <div><label class="field-label">Người nhận</label><input id="exp-receiver" class="input" required></div>
+              <div><label class="field-label">Bộ phận / Phòng ban</label><input id="exp-dept" class="input" required></div>
+              <div><label class="field-label">Người thực hiện</label><input id="exp-performer" class="input" value="Admin"></div>
+              <div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="exp-note" class="input min-h-24"></textarea></div>
+              <div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-xl border border-slate-200">Hủy</button><button id="export-submit" type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium">Xác nhận cấp phát</button></div>
+            </form>
+          </div>
+        </section>
 
-            <!-- TAB 3: FORM CẤP PHÁT THUỐC FIFO -->
-            <section id="tab-export" class="hidden max-w-xl mx-auto bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                <h3 class="font-bold text-slate-800 text-lg">Tạo yêu cầu cấp phát thuốc (Tự động trừ lô FIFO)</h3>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-2">Mã sản phẩm / Thuốc</label>
-Số lượng cấp phát
-Người nhận
-Bộ phận / Phòng ban
-Xác nhận cấp phát thuốc
+        <!-- HISTORY -->
+        <section id="tab-history" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center gap-3 md:justify-between"><div><h2 class="font-bold">Lịch sử cấp phát</h2><p class="text-xs text-slate-400">Tab <b>Xuất kho</b></p></div><input id="history-search" class="input md:w-80" placeholder="Tìm mã phiếu, thuốc, người nhận..."></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1000px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Thời gian</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lượng</th><th>Người nhận</th><th>Bộ phận</th><th>Người thực hiện</th><th>Ghi chú</th></tr></thead><tbody id="history-tbody"></tbody></table></div>
+        </section>
 
+        <!-- CATALOG -->
+        <section id="tab-catalog" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Danh mục hệ thống</h2><p class="text-sm text-slate-500 mt-1">Dữ liệu từ tab <b>Danh mục</b>.</p></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[700px] w-full text-sm"><thead><tr class="thead"><th>Loại</th><th>Mã</th><th>Tên</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody id="catalog-tbody"></tbody></table></div>
+        </section>
 
-// THAY THẾ LINK WEB APP CỦA BẠN VÀO ĐÂY
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec";
-// Khởi tạo icon Lucide mẫu
-lucide.createIcons();
-// Chuyển đổi qua lại giữa các tab menu
-function switchTab(tabName) {
-const tabs = ['dashboard', 'products', 'export'];
-tabs.forEach(t => {
-document.getElementById(tab-${t}).classList.add('hidden');
-document.getElementById(btn-${t}).className = "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-slate-600 hover:bg-slate-50 transition";
+        <!-- AUDIT -->
+        <section id="tab-audit" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Audit Log</h2><p class="text-sm text-slate-500 mt-1">Theo dõi các thao tác hệ thống.</p></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Thời gian</th><th>Hành động</th><th>Mã phiếu</th><th>Mã SP</th><th>Số lượng</th><th>Người thực hiện</th><th>Nội dung</th></tr></thead><tbody id="audit-tbody"></tbody></table></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="fixed right-4 bottom-4 hidden z-50 max-w-sm"></div>
+
+<script>
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec';
+const state = { products: [], stock: [], exports: [], dashboard: null, imports: [], catalog: [], audit: [], chart: null };
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const money = v => Number(v || 0).toLocaleString('vi-VN') + ' đ';
+const num = v => Number(v || 0).toLocaleString('vi-VN');
+const dateText = v => {
+  if (!v) return '';
+  const d = new Date(v);
+  return isNaN(d) ? esc(v) : d.toLocaleString('vi-VN');
+};
+
+function toast(message, type='info') {
+  const el = $('toast');
+  const cls = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
+  el.className = `toast fixed right-4 bottom-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg text-white text-sm ${cls}`;
+  el.textContent = message;
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+async function apiGet(action) {
+  const res = await fetch(`${GAS_API_URL}?action=${encodeURIComponent(action)}&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data && data.status === 'error') throw new Error(data.message || 'API lỗi');
+  return data;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(GAS_API_URL, { method: 'POST', headers: {'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+function setLoading(tbodyId, cols, text='Đang tải dữ liệu...') {
+  $(tbodyId).innerHTML = `<tr><td colspan="${cols}" class="p-6 text-center text-slate-400">${esc(text)}</td></tr>`;
+}
+
+function emptyRow(cols, text='Chưa có dữ liệu') {
+  return `<tr><td colspan="${cols}" class="p-8 text-center text-slate-400">${esc(text)}</td></tr>`;
+}
+
+const tabTitles = { dashboard:'Dashboard tổng quan', products:'Danh mục sản phẩm', import:'Nhập kho', export:'Cấp phát thuốc', history:'Lịch sử cấp phát', catalog:'Danh mục hệ thống', audit:'Audit Log' };
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  const panel = $(`tab-${name}`);
+  if (panel) panel.classList.remove('hidden');
+  document.querySelectorAll(`[data-tab="${name}"]`).forEach(el => el.classList.add('active'));
+  $('page-title').textContent = tabTitles[name] || name;
+  if (name === 'products') renderProducts();
+  if (name === 'import') renderImports();
+  if (name === 'history') renderHistory();
+  if (name === 'catalog') renderCatalog();
+  if (name === 'audit') renderAudit();
+  if (name === 'export') populateExportSelect();
+}
+
+async function loadAll() {
+  $('api-status').textContent = 'Đang tải dữ liệu...';
+  $('api-status').className = 'text-sm font-medium text-amber-600 mt-1';
+  try {
+    const [dashboard, products, stock, exports] = await Promise.all([
+      apiGet('getDashboard'), apiGet('getProducts'), apiGet('getStock'), apiGet('getExportHistory')
+    ]);
+    state.dashboard = dashboard;
+    state.products = (Array.isArray(products) ? products : []).map(p => ({
+      code: p['Mã SP'] || '', name: p['Tên sản phẩm'] || '', activeIngredient: p['Hoạt chất'] || '', unit: p['Đơn vị'] || '',
+      group: p['Nhóm thuốc'] || '', cost: p['Giá nhập'] || 0, price: p['Giá xuất'] || 0, minimum: p['Tồn tối thiểu'] || 0, status: p['Trạng thái'] || 'ACTIVE', note: p['Ghi chú'] || ''
+    }));
+    state.stock = Array.isArray(stock) ? stock : [];
+    state.exports = Array.isArray(exports) ? exports : [];
+    state.imports = dashboard.imports || [];
+    state.catalog = dashboard.catalog || [];
+    state.audit = dashboard.audit || [];
+    renderDashboard();
+    renderProducts();
+    populateExportSelect();
+    $('api-status').textContent = 'Đã kết nối Google Sheets';
+    $('api-status').className = 'text-sm font-medium text-emerald-600 mt-1';
+  } catch (err) {
+    console.error(err);
+    $('api-status').textContent = 'Lỗi kết nối API';
+    $('api-status').className = 'text-sm font-medium text-rose-600 mt-1';
+    toast('Không tải được dữ liệu: ' + err.message, 'error');
+  }
+}
+
+function renderDashboard() {
+  const d = state.dashboard || {};
+  $('stat-products').textContent = num(d.products);
+  $('stat-stock').textContent = num(d.totalStock);
+  $('stat-value').textContent = money(d.stockValue);
+  $('stat-orders').textContent = num(d.todayOrders);
+  $('stat-qty').textContent = num(d.todayExportQty);
+  $('stat-low').textContent = num(d.lowStock);
+  $('stat-expired').textContent = num(d.expired);
+  $('stat-expiring').textContent = num(d.expiringSoon);
+  $('stat-warning').textContent = num((d.lowStock || 0) + (d.expired || 0));
+  $('stat-warning-detail').textContent = `${num(d.lowStock)} tồn thấp · ${num(d.expired)} hết hạn`;
+
+  const recent = Array.isArray(d.recentActivities) ? d.recentActivities : [];
+  $('recent-list').innerHTML = recent.length ? recent.map(r => `
+    <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
+      <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><i data-lucide="package-minus" class="w-4 h-4"></i></div>
+      <div class="min-w-0"><div class="text-sm font-medium truncate">${esc(r['Tên sản phẩm'] || r['Mã SP'])}</div><div class="text-xs text-slate-500">${num(r['Tổng số lượng'])} · ${esc(r['Người nhận'])} · ${esc(r['Bộ phận'])}</div><div class="text-[11px] text-slate-400 mt-1">${dateText(r['Thời gian'])}</div></div>
+    </div>`).join('') : '<div class="text-sm text-slate-400">Chưa có hoạt động.</div>';
+
+  if (window.lucide) lucide.createIcons();
+  drawStockChart();
+}
+
+function drawStockChart() {
+  const labels = state.stock.filter(x => Number(x.quantity) > 0).sort((a,b) => Number(b.quantity)-Number(a.quantity)).slice(0,10);
+  const ctx = $('stock-chart').getContext('2d');
+  if (state.chart) state.chart.destroy();
+  state.chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels.map(x => x.name || x.code), datasets: [{ label:'Tồn kho', data: labels.map(x => Number(x.quantity)||0), borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{beginAtZero:true} } }
+  });
+}
+
+function renderProducts() {
+  const q = ($('product-search')?.value || '').toLowerCase().trim();
+  const rows = state.products.filter(p => [p.code,p.name,p.activeIngredient,p.unit,p.group].join(' ').toLowerCase().includes(q));
+  $('products-tbody').innerHTML = rows.length ? rows.map(p => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50">
+      <td class="td font-semibold">${esc(p.code)}</td><td class="td">${esc(p.name)}</td><td class="td">${esc(p.activeIngredient || '')}</td><td class="td">${esc(p.unit || '')}</td><td class="td">${esc(p.group || '')}</td><td class="td">${money(p.cost)}</td><td class="td">${num(p.minimum)}</td>
+      <td class="td"><span class="badge ${String(p.status).toUpperCase()==='INACTIVE'?'badge-red':'badge-green'}">${esc(p.status || 'ACTIVE')}</span></td>
+    </tr>`).join('') : emptyRow(8);
+}
+
+function populateExportSelect() {
+  const select = $('exp-code');
+  const current = select.value;
+  const products = state.products.filter(p => String(p.status || 'ACTIVE').toUpperCase() !== 'INACTIVE');
+  select.innerHTML = '<option value="">-- Chọn thuốc --</option>' + products.map(p => `<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');
+  if (products.some(p => p.code === current)) select.value = current;
+  updateSelectedStock();
+}
+
+function updateSelectedStock() {
+  const code = $('exp-code').value;
+  const s = state.stock.find(x => String(x.code) === String(code));
+  $('selected-stock').textContent = code ? `Tồn hiện tại: ${num(s?.quantity || 0)} ${s?.unit || ''}` : '';
+}
+
+function renderHistory() {
+  const q = ($('history-search')?.value || '').toLowerCase().trim();
+  const rows = state.exports.filter(r => [r['Mã phiếu cấp phát'],r['Mã SP'],r['Tên sản phẩm'],r['Người nhận'],r['Bộ phận'],r['Người thực hiện']].join(' ').toLowerCase().includes(q));
+  $('history-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50"><td class="td font-semibold">${esc(r['Mã phiếu cấp phát'])}</td><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td font-semibold">${num(r['Tổng số lượng'])}</td><td class="td">${esc(r['Người nhận'])}</td><td class="td">${esc(r['Bộ phận'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(9);
+}
+
+function renderImports() {
+  const rows = state.imports || [];
+  $('imports-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
+    <tr class="border-b border-slate-100"><td class="td">${esc(r['Mã phiếu nhập'])}</td><td class="td">${dateText(r['Ngày nhập'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td">${esc(r['Số lô'])}</td><td class="td">${num(r['Số lượng nhập'])}</td><td class="td font-semibold">${num(r['Số lượng còn'])}</td><td class="td">${dateText(r['Hạn sử dụng'])}</td><td class="td">${money(r['Đơn giá'])}</td><td class="td">${esc(r['Nhà cung cấp'])}</td></tr>`).join('') : emptyRow(10, 'Chưa có dữ liệu nhập kho hoặc API chưa trả tab Nhập kho.');
+}
+
+function renderCatalog() {
+  const rows = state.catalog || [];
+  $('catalog-tbody').innerHTML = rows.length ? rows.map(r => `<tr class="border-b border-slate-100"><td class="td">${esc(r['Loại'])}</td><td class="td">${esc(r['Mã'])}</td><td class="td">${esc(r['Tên'])}</td><td class="td">${esc(r['Trạng thái'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(5, 'Chưa có dữ liệu danh mục hoặc API chưa trả tab Danh mục.');
+}
+
+function renderAudit() {
+  const rows = state.audit || [];
+  $('audit-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `<tr class="border-b border-slate-100"><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('') : emptyRow(7, 'Chưa có Audit Log hoặc API chưa trả tab AuditLog.');
+}
+
+$('export-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('export-submit');
+  const payload = {
+    action: 'exportFEFO',
+    code: $('exp-code').value.trim(),
+    quantity: Number($('exp-qty').value),
+    receiver: $('exp-receiver').value.trim(),
+    department: $('exp-dept').value.trim(),
+    performer: $('exp-performer').value.trim() || 'Admin',
+    note: $('exp-note').value.trim()
+  };
+  if (!payload.code || !payload.quantity || payload.quantity <= 0 || !payload.receiver || !payload.department) return toast('Vui lòng nhập đủ thông tin cấp phát.', 'error');
+  btn.disabled = true; btn.textContent = 'Đang xử lý...';
+  try {
+    const result = await apiPost(payload);
+    if (result.status !== 'success') throw new Error(result.message || 'Cấp phát thất bại');
+    toast(`Cấp phát thành công. Mã phiếu: ${result.exportId}`, 'success');
+    e.target.reset(); $('exp-performer').value = 'Admin';
+    await loadAll();
+    switchTab('history');
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Xác nhận cấp phát'; }
 });
-document.getElementById(tab-${tabName}).classList.remove('hidden');
-document.getElementById(btn-${tabName}).className = "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-blue-50 text-blue-600 transition";
-const titles = { dashboard: "Dashboard tổng quan", products: "Danh mục sản phẩm", export: "Cấp phát thuốc" };
-document.getElementById('page-title').innerText = titles[tabName];
-if (tabName === 'products') loadProductsData();
-}
-// Gọi API tải danh mục sản phẩm từ Google Sheet đổ lên bảng
-async function loadProductsData() {
-const tbody = document.getElementById('product-list-tbody');
-tbody.innerHTML = <tr><td colspan="6" class="p-4 text-center text-slate-400">Đang tải dữ liệu...</td></tr>;
-try {
-const res = await fetch(${GAS_API_URL}?action=getProducts);
-const products = await res.json();
-tbody.innerHTML = '';
-products.forEach(p => {
-tbody.innerHTML += `
-${p["Mã SP"]}
-${p["Tên sản phẩm"]}
-${p["Đơn vị"]}
-${Number(p["Giá nhập"]).toLocaleString()} đ
-${Number(p["Giá xuất"]).toLocaleString()} đ
-Đang bán
-; }); } catch (err) { tbody.innerHTML = Lỗi kết nối database Google Sheets. Hãy kiểm tra URL GAS!`;
-}
-}
-// Gửi lệnh Xuất cấp phát thuốc theo cấu trúc FIFO về GAS
-async function submitFIFOExport() {
-const code = document.getElementById('exp-code').value;
-const quantity = document.getElementById('exp-qty').value;
-const receiver = document.getElementById('exp-receiver').value;
-const department = document.getElementById('exp-dept').value;
-if(!code || !quantity) return alert("Vui lòng điền đủ thông tin!");
-try {
-const res = await fetch(GAS_API_URL, {
-method: 'POST',
-body: JSON.stringify({ action: 'exportFIFO', code, quantity, receiver, department })
-});
-const result = await res.json();
-alert(result.message);
-if(result.status === 'success') switchTab('dashboard');
-} catch(e) {
-alert("Yêu cầu thất bại, hãy chắc chắn đã cấu hình Web App GAS ở chế độ Anyone.");
-}
-}
-// Vẽ biểu đồ xu hướng Nhập - Xuất giống ảnh Dashboard mẫu bằng Chart.js
-const ctx = document.getElementById('chart-trends').getContext('2d');
-new Chart(ctx, {
-type: 'bar',
-data: {
-labels: ['04/2025', '05/2025', '06/2025', '07/2025', '08/2025', '09/2025'],
-datasets: [
-{ label: 'Nhập', data:, backgroundColor: '#3b82f6', barPercentage: 0.6 },
-{ label: 'Xuất', data:, backgroundColor: '#6366f1', barPercentage: 0.6 }
-]
-},
-options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
 
+$('exp-code').addEventListener('change', updateSelectedStock);
+$('product-search').addEventListener('input', renderProducts);
+$('history-search').addEventListener('input', renderHistory);
+$('refresh-btn').addEventListener('click', loadAll);
+
+document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+// CSS class injection for compact reusable UI.
+const style = document.createElement('style');
+style.textContent = `
+.nav-btn{width:100%;display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-radius:.75rem;color:#475569;font-size:.875rem;font-weight:500}.nav-btn svg{width:18px;height:18px}.nav-btn:hover{background:#f8fafc}.nav-btn.active{background:#eff6ff;color:#2563eb}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem 1.1rem}.label{font-size:.75rem;color:#94a3b8;font-weight:600}.stat{font-size:1.7rem;font-weight:800;margin-top:.3rem}.hint{font-size:.7rem;color:#94a3b8;margin-top:.2rem}.input{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.65rem .8rem;font-size:.875rem;outline:none;background:#fff}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}.field-label{display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.4rem}.thead{background:#f8fafc;color:#64748b;font-size:.7rem;text-align:left}.thead th{padding:.8rem;white-space:nowrap}.td{padding:.75rem;white-space:nowrap}.badge{display:inline-flex;padding:.25rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700}.badge-green{background:#ecfdf5;color:#047857}.badge-red{background:#fef2f2;color:#b91c1c}`;
+document.head.appendChild(style);
+
+if (window.lucide) lucide.createIcons();
+loadAll();
+</script>
+</body>
+</html>

@@ -744,7 +744,11 @@ function getDashboard_(ss) {
     lowStock: lowStock,
     expired: expired,
     expiringSoon: expiringSoon,
-    recentActivities: exportRows.slice(-10).reverse()
+    recentActivities: exportRows.slice(-10).reverse(),
+    // Trả thêm dữ liệu cho frontend để đồng bộ 7 tab Google Sheets.
+    imports: importRows,
+    catalog: getSheetData_(ss, 'Danh mục'),
+    audit: getSheetData_(ss, 'AuditLog')
   };
 }
 
