@@ -72,29 +72,54 @@ function ensureSystemSheets_(ss){ Object.keys(SHEET_CONFIG).forEach(n=>{let sh=s
 
 function doGet(e){
   try{
-    const ss=getSpreadsheet_(); ensureSystemSheets_(ss);
-    const a=e&&e.parameter?e.parameter.action:'';
-    if(a==='setup') return json_({status:'success',message:'Đã setup các tab.',sheets:Object.keys(SHEET_CONFIG)});
-    if(a==='getProducts') return json_(getSheetData_(ss,'Sản phẩm'));
-    if(a==='getDashboard') return json_(getDashboard_(ss));
-    if(a==='getStock') return json_(getStock_(ss));
-    if(a==='getExportHistory') return json_(getSheetData_(ss,'Xuất kho'));
-    if(a==='getReport') return json_(getReport_(ss,e.parameter||{}));
-    return json_({status:'success',message:'API đang hoạt động.',actions:['getProducts','getDashboard','getStock','getExportHistory','getReport']});
-  }catch(err){ return json_({status:'error',message:err.message}); }
+    const params=(e&&e.parameter)||{};
+    const action=String(params.action||'').trim();
+    const ss=getSpreadsheet_();
+    ensureSystemSheets_(ss);
+
+    let result;
+    if(action==='setup') result={status:'success',message:'Đã setup các tab.',sheets:Object.keys(SHEET_CONFIG)};
+    else if(action==='health') result={status:'success',message:'API đang hoạt động.',version:'2.1.0',spreadsheet:ss.getName(),timestamp:new Date()};
+    else if(action==='getProducts') result=getSheetData_(ss,'Sản phẩm');
+    else if(action==='getDashboard') result=getDashboard_(ss);
+    else if(action==='getStock') result=getStock_(ss);
+    else if(action==='getExportHistory') result=getSheetData_(ss,'Xuất kho');
+    else if(action==='getReport') result=getReport_(ss,params);
+    // JSONP fallback cho GitHub Pages: trình duyệt không bị chặn bởi CORS.
+    // Các action ghi dữ liệu được hỗ trợ qua GET vì Apps Script ContentService
+    // không cho phép tự đặt Access-Control-Allow-Origin cho fetch POST cross-origin.
+    else if(['createProduct','updateProduct','deleteProduct','createImport','exportFIFO','exportFEFO'].indexOf(action)>=0){
+      const payload=payloadFromParams_(params);
+      payload.action=action;
+      if(action==='createProduct') result=createProduct_(ss,payload);
+      else if(action==='updateProduct') result=updateProduct_(ss,payload);
+      else if(action==='deleteProduct') result=deleteProduct_(ss,payload);
+      else if(action==='createImport') result=createImport_(ss,payload);
+      else result=exportMedicine_(ss,payload);
+    } else result={status:'success',message:'API đang hoạt động.',actions:['health','getProducts','getDashboard','getStock','getExportHistory','getReport','createProduct','updateProduct','deleteProduct','createImport','exportFEFO']};
+
+    return respond_(result,params.callback);
+  }catch(err){ return respond_({status:'error',message:err&&err.message?err.message:String(err)},e&&e.parameter&&e.parameter.callback); }
+}
+
+function payloadFromParams_(p){
+  const out={};
+  Object.keys(p||{}).forEach(k=>{ if(k!=='action'&&k!=='callback'&&k!=='t') out[k]=p[k]; });
+  return out;
 }
 
 function doPost(e){
   try{
-    const payload=JSON.parse((e.postData&&e.postData.contents)||'{}'), a=payload.action, ss=getSpreadsheet_(); ensureSystemSheets_(ss);
-    if(a==='setupSheets'){setupThuocSheets();return json_({status:'success',message:'Đã setup các tab.'});}
-    if(a==='createProduct') return json_(createProduct_(ss,payload));
-    if(a==='updateProduct') return json_(updateProduct_(ss,payload));
-    if(a==='deleteProduct') return json_(deleteProduct_(ss,payload));
-    if(a==='createImport') return json_(createImport_(ss,payload));
-    if(a==='exportFIFO'||a==='exportFEFO') return json_(exportMedicine_(ss,payload));
+    const payload=JSON.parse((e.postData&&e.postData.contents)||'{}');
+    const action=payload.action, ss=getSpreadsheet_(); ensureSystemSheets_(ss);
+    if(action==='setupSheets'){setupThuocSheets();return json_({status:'success',message:'Đã setup các tab.'});}
+    if(action==='createProduct') return json_(createProduct_(ss,payload));
+    if(action==='updateProduct') return json_(updateProduct_(ss,payload));
+    if(action==='deleteProduct') return json_(deleteProduct_(ss,payload));
+    if(action==='createImport') return json_(createImport_(ss,payload));
+    if(action==='exportFIFO'||action==='exportFEFO') return json_(exportMedicine_(ss,payload));
     return json_({status:'error',message:'Action không được hỗ trợ.'});
-  }catch(err){return json_({status:'error',message:err.message});}
+  }catch(err){return json_({status:'error',message:err&&err.message?err.message:String(err)});}
 }
 
 function validateProduct_(p){
@@ -224,4 +249,12 @@ function getSheetData_(ss,name){
 function audit_(ss,action,id,code,qty,performer,note){ss.getSheetByName('AuditLog').appendRow([new Date(),action,id,code,qty,performer,note,'']);}
 function makeId_(prefix,d){return prefix+'-'+Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyyMMdd-HHmmss')+'-'+Utilities.getUuid().slice(0,6).toUpperCase();}
 function formatDate_(d){return d?Utilities.formatDate(d,Session.getScriptTimeZone(),'dd/MM/yyyy'):'';}
-function json_(data){return ContentService.createTextOutput(JSON.stringify(data,(_,v)=>v instanceof Date?Utilities.formatDate(v,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):v)).setMimeType(ContentService.MimeType.JSON);}
+function serialize_(data){return JSON.stringify(data,(_,v)=>v instanceof Date?Utilities.formatDate(v,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):v);}
+function json_(data){return ContentService.createTextOutput(serialize_(data)).setMimeType(ContentService.MimeType.JSON);}
+function respond_(data,callback){
+  const body=serialize_(data);
+  if(callback && /^[A-Za-z_$][0-9A-Za-z_$]*(?:\.[A-Za-z_$][0-9A-Za-z_$]*)*$/.test(callback)){
+    return ContentService.createTextOutput(callback+'('+body+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
+}
