@@ -4,7 +4,7 @@
  * Frontend dùng JSONP để không phụ thuộc CORS.
  */
 const SPREADSHEET_ID = '1ZT7EeWVtJ8WkUWy7voM8FWxqBfMekvoeCo53Q3p9bJg';
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '4.0.0';
 const SESSION_TTL = 21600; // 6 giờ
 
 const SHEETS = {
@@ -96,7 +96,7 @@ function dispatchApi_(action,args){
   }
 }
 
-function setupV2(){setupV2_(); return {status:'success',version:APP_VERSION,message:'Đã cập nhật cấu trúc V3.'};}
+function setupV2(){setupV2_(); return {status:'success',version:APP_VERSION,message:'Đã cập nhật cấu trúc V4.'};}
 function ensureReady_(){
   const book=ss_();
   const ready=Object.keys(SHEETS).every(k=>{
