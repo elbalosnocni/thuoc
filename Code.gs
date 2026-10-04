@@ -37,7 +37,9 @@ function doGet(e){
     if(p.payload) req=JSON.parse(p.payload);
     const action=String(req.action||p.action||'').trim();
     const args=Array.isArray(req.args)?req.args:[];
-    if(action==='setup'){
+    if(action==='ping'){
+      result={status:'success',ok:true,version:APP_VERSION,message:'Google Apps Script Web API dang hoat dong.',time:now_()};
+    }else if(action==='setup'){
       result=setupV2();
     }else{
       result=dispatchApi_(action,args);
