@@ -2,7 +2,7 @@
 <body class="bg-slate-50 text-slate-800">
 <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
 <div class="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-7">
-<div class="flex items-center gap-3 mb-7"><div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl">💊</div><div><div class="font-bold text-xl">Quản lý kho thuốc</div><div class="text-sm text-slate-400">Phiên bản V4.2 · GitHub Pages + Apps Script API</div></div></div>
+<div class="flex items-center gap-3 mb-7"><div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl">💊</div><div><div class="font-bold text-xl">Quản lý kho thuốc</div><div class="text-sm text-slate-400">Phiên bản V4.2 URL FIX · GitHub Pages + Apps Script API</div></div></div>
 <form id="login-form" class="space-y-4" autocomplete="on">
 <div><label class="block text-xs font-bold mb-1">Tài khoản</label><input id="login-user" class="input" autocomplete="username" required></div>
 <div><label class="block text-xs font-bold mb-1">Mật khẩu</label><input id="login-pass" class="input" type="password" autocomplete="current-password" required></div>
@@ -11,9 +11,10 @@
 <div id="login-msg" class="text-sm text-rose-600 mt-4"></div>
 <div class="mt-6 p-4 rounded-xl bg-slate-50 border">
 <div class="text-xs font-bold mb-2">Kết nối Google Apps Script</div>
-<input id="api-url" class="input text-xs" placeholder="https://script.google.com/macros/s/.../exec" spellcheck="false">
-<button id="api-test" type="button" class="mt-2 w-full py-2 rounded-lg border bg-white text-sm">Kiểm tra API</button>
-<div id="api-test-msg" class="text-xs text-slate-500 mt-2">Nhập URL Web App /exec rồi kiểm tra.</div>
+<input id="api-url" class="input text-xs" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/DEPLOYMENT_ID/exec">
+<div class="text-[11px] text-slate-500 mt-2 leading-5">Dùng đúng URL <b>/exec</b> của Web App. Không dùng URL <b>/dev</b>. URL được lưu riêng trên thiết bị này.</div>
+<button id="api-test" type="button" class="mt-2 w-full py-2 rounded-lg border bg-white text-sm">Lưu & kiểm tra API</button>
+<div id="api-test-msg" class="text-xs text-slate-500 mt-2">Chưa cấu hình URL API.</div>
 </div>
 <div class="text-xs text-slate-400 mt-5">Tài khoản khởi tạo: <b>admin</b> / <b>Admin@12345</b>. Hệ thống bắt buộc đổi mật khẩu lần đầu.</div>
 </div></div>
@@ -24,8 +25,16 @@ const state={token:localStorage.getItem('kho_v4_token')||localStorage.getItem('k
 function toast(msg,ok=true){const x=document.createElement('div');x.className='toast '+(ok?'bg-emerald-600':'bg-rose-600');x.textContent=msg;$('toast-root').appendChild(x);setTimeout(()=>x.remove(),3500)}
 let busy=0;
 function setLoading(on){busy=Math.max(0,busy+(on?1:-1));$('loading').classList.toggle('hide',busy===0)}
-let GAS_API_URL=localStorage.getItem('kho_v42_api_url')||localStorage.getItem('kho_v4_api_url')||'';
+let GAS_API_URL=localStorage.getItem('kho_v42_api_url')||'';
 let apiSeq=0;
+const API_URL_RE=/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/;
+function normalizeApiUrl(value){
+  let url=String(value||'').trim();
+  url=url.replace(/[\s]+/g,'').replace(/[?&]+$/,'');
+  // Không tự đổi /dev thành /exec vì đó là hai deployment endpoint khác nhau.
+  return url;
+}
+function validApiUrl(url){return API_URL_RE.test(normalizeApiUrl(url));}
 function apiError(msg){const e=new Error(msg||'API lỗi');if(/phiên đăng nhập đã hết hạn/i.test(e.message)){localStorage.removeItem('kho_v4_token');localStorage.removeItem('kho_v3_token');state.token='';state.user=null;$('app-view').classList.add('hide');$('login-view').classList.remove('hide');$('login-msg').textContent=e.message}return e}
 function run(name,args=[]){
   setLoading(true);
@@ -35,24 +44,32 @@ function run(name,args=[]){
     let timer=null,done=false;
     const cleanup=()=>{if(done)return;done=true;clearTimeout(timer);delete window[cb];script.remove()};
     window[cb]=(result)=>{cleanup();setLoading(false);if(result&&result.status==='error')reject(apiError(result.message));else resolve(result)};
-    script.onerror=()=>{cleanup();setLoading(false);reject(new Error('Khong tai duoc API. Kiem tra URL Web App, quyen Anyone va deployment /exec.'))};
+    script.onerror=()=>{cleanup();setLoading(false);reject(new Error('Không tải được API. Kiểm tra URL /exec, deployment Web App và quyền truy cập.'))};
     const payload=encodeURIComponent(JSON.stringify({action:name,args:Array.isArray(args)?args:[]}));
-    const base=String(GAS_API_URL||'').trim().replace(/[?&]+$/,'');
-    if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(base)){cleanup();setLoading(false);reject(new Error('URL Web App khong hop le. Phai co dang https://script.google.com/macros/s/.../exec'));return}
+    const base=normalizeApiUrl(GAS_API_URL);
+    if(!validApiUrl(base)){cleanup();setLoading(false);reject(new Error('URL Web App không hợp lệ. Phải có dạng https://script.google.com/macros/s/.../exec'));return}
     script.src=base+'?callback='+encodeURIComponent(cb)+'&payload='+payload+'&t='+Date.now();
-    timer=setTimeout(()=>{cleanup();setLoading(false);reject(new Error('API khong phan hoi sau 30 giay. Kiem tra deployment phai la Web app va quyen truy cap la Anyone.'))},30000);
+    timer=setTimeout(()=>{cleanup();setLoading(false);reject(new Error('API không phản hồi sau 30 giây. Kiểm tra deployment Web App và quyền truy cập Anyone.'))},30000);
     document.body.appendChild(script);
   });
 }
 function saveApiUrl(){
-  const el=$('api-url'); const url=String(el?.value||'').trim().replace(/[?&]+$/,'');
-  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)){ $('api-test-msg').textContent='URL khong hop le. Phai la URL Web App ket thuc bang /exec.'; return false; }
-  GAS_API_URL=url; localStorage.setItem('kho_v42_api_url',url); localStorage.setItem('kho_v4_api_url',url); $('api-test-msg').textContent='Da luu URL. Dang kiem tra...'; return true;
+  const url=normalizeApiUrl($('api-url')?.value);
+  if(!validApiUrl(url)){
+    $('api-test-msg').textContent='URL không hợp lệ. Hãy dán đúng URL Web App kết thúc bằng /exec.';
+    $('api-test-msg').className='text-xs text-rose-600 mt-2';
+    return false;
+  }
+  GAS_API_URL=url;
+  localStorage.setItem('kho_v42_api_url',url);
+  $('api-test-msg').textContent='Đã lưu URL. Đang kiểm tra API...';
+  $('api-test-msg').className='text-xs text-slate-500 mt-2';
+  return true;
 }
 async function testApi(){
   if(!saveApiUrl()) return;
-  try{const r=await run('ping',[]);$('api-test-msg').textContent='✓ '+(r.message||'API hoat dong');$('api-test-msg').className='text-xs text-emerald-600 mt-1';}
-  catch(e){$('api-test-msg').textContent='✕ '+e.message;$('api-test-msg').className='text-xs text-rose-600 mt-1';}
+  try{const r=await run('ping',[]);$('api-test-msg').textContent='✓ '+(r.message||'API hoạt động')+' · '+GAS_API_URL;$('api-test-msg').className='text-xs text-emerald-600 mt-2 break-all';}
+  catch(e){$('api-test-msg').textContent='✕ '+e.message;$('api-test-msg').className='text-xs text-rose-600 mt-2';}
 }
 function navItems(){const r=state.user.role;return [{id:'dashboard',t:'Dashboard',ok:true},{id:'products',t:'Sản phẩm',ok:r==='ADMIN'||r==='KHO'},{id:'import',t:'Nhập kho',ok:r==='ADMIN'||r==='KHO'},{id:'issue',t:'Cấp phát',ok:r==='ADMIN'||r==='CAP_PHAT'},{id:'reports',t:'Báo cáo',ok:true},{id:'history',t:'Lịch sử',ok:true},{id:'users',t:'Người dùng',ok:r==='ADMIN'},{id:'audit',t:'Audit Log',ok:r==='ADMIN'}].filter(x=>x.ok)}
 function renderNav(){const items=navItems();$('side-nav').innerHTML=items.map(x=>`<button class="nav ${state.tab===x.id?'active':''}" data-tab="${x.id}">▸ ${x.t}</button>`).join('');$('mobile-nav').innerHTML=items.map(x=>`<button class="nav ${state.tab===x.id?'active':''} whitespace-nowrap" data-tab="${x.id}">${x.t}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab))}
@@ -76,7 +93,7 @@ async function toggleUser(u,a){try{await run('setUserStatus',[state.token,decode
 function renderAudit(){const a=state.data.audit||[];$('page-audit').innerHTML=`<div class="card p-5 mb-4"><h2 class="font-bold text-lg">Audit Log</h2><div class="text-sm text-slate-400">Theo dõi đăng nhập, sản phẩm, nhập kho và cấp phát.</div></div><div class="card overflow-auto"><table class="min-w-[1100px] w-full text-sm"><thead><tr><th class="th">Thời gian</th><th class="th">Hành động</th><th class="th">Phiếu</th><th class="th">Mã SP</th><th class="th">SL</th><th class="th">Người thực hiện</th><th class="th">Nội dung</th></tr></thead><tbody>${a.slice().reverse().map(r=>`<tr class="border-b"><td class="td">${dt(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('')||'<tr><td colspan="7" class="td text-center text-slate-400">Chưa có log</td></tr>'}</tbody></table></div>`}
 function openModal(){$('modal').classList.remove('hide')}function closeModal(){$('modal').classList.add('hide')}
 function changePassword(force=false){$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">${force?'Đổi mật khẩu bắt buộc':'Đổi mật khẩu'}</h3><form id="cpf" class="space-y-4"><div><label class="text-xs font-bold">Mật khẩu hiện tại</label><input id="oldp" type="password" class="input" required></div><div><label class="text-xs font-bold">Mật khẩu mới</label><input id="newp" type="password" minlength="8" class="input" required></div><div class="flex justify-end"><button class="px-4 py-2 bg-blue-600 text-white rounded-xl">Lưu</button></div></form>`;openModal();$('cpf').onsubmit=async e=>{e.preventDefault();try{await run('changePassword',[state.token,$('oldp').value,$('newp').value]);state.user.forceChange=false;closeModal();toast('Đã đổi mật khẩu');}catch(x){toast(x.message,false)}}}
-$('api-url').value=GAS_API_URL;$('api-test').onclick=testApi;
+$('api-url').value=GAS_API_URL;$('api-test').onclick=testApi;if(GAS_API_URL){$('api-test-msg').textContent='Đã lưu URL API trên thiết bị. Bấm Lưu & kiểm tra API để xác nhận kết nối.';$('api-test-msg').className='text-xs text-slate-500 mt-2';}
 $('login-form').onsubmit=async e=>{e.preventDefault();$('login-msg').textContent='';const btn=$('login-btn');btn.disabled=true;btn.textContent='Đang đăng nhập...';try{const r=await run('login',[$('login-user').value.trim(),$('login-pass').value]);state.token=r.token;state.user=r.user;localStorage.setItem('kho_v4_token',state.token);$('login-form').reset();await boot()}catch(x){$('login-msg').textContent=x.message||'Đăng nhập thất bại.'}finally{btn.disabled=false;btn.textContent='Đăng nhập'}};
 $('logout').onclick=async()=>{try{await run('logout',[state.token])}catch(e){}localStorage.removeItem('kho_v4_token');localStorage.removeItem('kho_v3_token');state.token='';state.user=null;$('app-view').classList.add('hide');$('login-view').classList.remove('hide')};$('refresh').onclick=async()=>{try{await loadData();showTab(state.tab);toast('Đã làm mới')}catch(e){toast(e.message,false)}};$('change-pass').onclick=()=>changePassword(false);$('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};boot();
 </script></body></html>
