@@ -1,62 +1,364 @@
-<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quản lý kho thuốc V4</title><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><style>body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.input{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.65rem .8rem;background:#fff;outline:0}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem}.td{padding:.7rem .8rem;white-space:nowrap}.th{padding:.75rem .8rem;text-align:left;background:#f8fafc;color:#64748b;font-size:.72rem;white-space:nowrap}.badge{display:inline-flex;padding:.2rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700}.green{background:#ecfdf5;color:#047857}.red{background:#fef2f2;color:#b91c1c}.amber{background:#fffbeb;color:#b45309}.nav{display:flex;gap:.65rem;align-items:center;width:100%;padding:.65rem .8rem;border-radius:.75rem;color:#475569}.nav.active{background:#eff6ff;color:#2563eb;font-weight:700}.toast{position:fixed;right:1rem;bottom:1rem;z-index:100;min-width:280px;padding:.9rem 1rem;border-radius:.8rem;color:#fff;box-shadow:0 10px 30px rgba(15,23,42,.2)}.modal-bg{background:rgba(15,23,42,.45)}.hide{display:none!important}.loading-bg{background:rgba(15,23,42,.38)}.loading-card{box-shadow:0 12px 40px rgba(15,23,42,.2)}.spin{width:22px;height:22px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}} </style></head>
-<body class="bg-slate-50 text-slate-800">
-<div id="login-view" class="min-h-screen flex items-center justify-center p-4">
-<div class="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-7">
-<div class="flex items-center gap-3 mb-7"><div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl">💊</div><div><div class="font-bold text-xl">Quản lý kho thuốc</div><div class="text-sm text-slate-400">Phiên bản V4.1 · GitHub Pages + Apps Script API</div></div></div>
-<form id="login-form" class="space-y-4" autocomplete="on">
-<div><label class="block text-xs font-bold mb-1">Tài khoản</label><input id="login-user" class="input" autocomplete="username" required></div>
-<div><label class="block text-xs font-bold mb-1">Mật khẩu</label><input id="login-pass" class="input" type="password" autocomplete="current-password" required></div>
-<button id="login-btn" type="submit" class="w-full py-2.5 rounded-xl bg-blue-600 text-white font-semibold">Đăng nhập</button>
-</form>
-<div id="login-msg" class="text-sm text-rose-600 mt-4"></div><div id="api-status" class="text-xs text-slate-400 mt-2">API: đang kết nối…</div>
-<div class="text-xs text-slate-400 mt-5">Tài khoản khởi tạo: <b>admin</b> / <b>Admin@12345</b>. Hệ thống bắt buộc đổi mật khẩu lần đầu.</div>
-</div></div>
-<div id="app-view" class="hide min-h-screen md:flex"><aside class="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col"><div class="p-5 border-b"><div class="font-bold text-lg">Quản lý kho thuốc V4</div><div class="text-xs text-slate-400">Nhập · tồn · cấp phát · báo cáo</div></div><nav id="side-nav" class="p-3 space-y-1 flex-1"></nav><div class="p-4 border-t"><div id="who" class="font-semibold text-sm"></div><div id="role" class="text-xs text-slate-400 mt-1"></div><button id="logout" class="mt-3 w-full py-2 rounded-lg border text-sm">Đăng xuất</button></div></aside><main class="flex-1 min-w-0"><header class="h-16 bg-white border-b sticky top-0 z-20 px-4 md:px-7 flex items-center justify-between"><div><h1 id="title" class="font-bold text-lg">Dashboard</h1><div id="sub" class="text-xs text-slate-400">Đang tải...</div></div><div class="flex gap-2"><button id="change-pass" class="px-3 py-2 rounded-lg border text-sm">Đổi mật khẩu</button><button id="refresh" class="px-3 py-2 rounded-lg border text-sm">Làm mới</button></div></header><div id="mobile-nav" class="md:hidden bg-white border-b p-2 overflow-x-auto flex gap-1"></div><div class="p-4 md:p-7"><section id="page-dashboard" class="page"></section><section id="page-products" class="page hide"></section><section id="page-import" class="page hide"></section><section id="page-issue" class="page hide"></section><section id="page-reports" class="page hide"></section><section id="page-history" class="page hide"></section><section id="page-users" class="page hide"></section><section id="page-audit" class="page hide"></section></div></main></div>
-<div id="modal" class="hide fixed inset-0 modal-bg z-50 p-4 flex items-center justify-center"><div id="modal-box" class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto p-6"></div></div><div id="toast-root"></div><div id="loading" class="hide fixed inset-0 loading-bg z-[200] flex items-center justify-center"><div class="loading-card bg-white rounded-2xl px-6 py-5 flex items-center gap-3"><div class="spin"></div><div><div class="font-semibold">Đang xử lý...</div><div class="text-xs text-slate-400">Vui lòng chờ</div></div></div></div>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý cấp phát thuốc</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    .table-wrap { overflow-x: auto; }
+    .toast { animation: toastIn .2s ease-out; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="min-h-screen flex">
+    <aside class="w-64 shrink-0 bg-white border-r border-slate-200 hidden md:flex flex-col">
+      <div class="px-5 py-5 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center"><i data-lucide="pill" class="w-5 h-5"></i></div>
+          <div>
+            <div class="font-bold">Quản lý thuốc</div>
+            <div class="text-xs text-slate-400">Nhập - xuất - tồn</div>
+          </div>
+        </div>
+      </div>
+      <nav class="p-3 space-y-1 flex-1">
+        <button class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+        <button class="nav-btn" data-tab="products"><i data-lucide="package"></i><span>Sản phẩm</span></button>
+        <button class="nav-btn" data-tab="import"><i data-lucide="package-plus"></i><span>Nhập kho</span></button>
+        <button class="nav-btn" data-tab="export"><i data-lucide="package-minus"></i><span>Cấp phát thuốc</span></button>
+        <button class="nav-btn" data-tab="history"><i data-lucide="history"></i><span>Lịch sử cấp phát</span></button>
+        <button class="nav-btn" data-tab="catalog"><i data-lucide="list"></i><span>Danh mục</span></button>
+        <button class="nav-btn" data-tab="audit"><i data-lucide="shield-check"></i><span>Audit Log</span></button>
+      </nav>
+      <div class="p-4 border-t border-slate-100">
+        <div class="text-xs text-slate-400">Backend</div>
+        <div id="api-status" class="text-sm font-medium text-amber-600 mt-1">Đang kiểm tra...</div>
+      </div>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      <header class="h-16 bg-white border-b border-slate-200 px-4 md:px-7 flex items-center justify-between sticky top-0 z-20">
+        <div>
+          <h1 id="page-title" class="font-bold text-lg md:text-xl">Dashboard tổng quan</h1>
+          <div class="text-xs text-slate-400 hidden md:block">Theo dõi cấp phát và tồn kho thuốc</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="refresh-btn" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Làm mới</span></button>
+        </div>
+      </header>
+
+      <div class="md:hidden bg-white border-b border-slate-200 p-2 overflow-x-auto flex gap-1" id="mobile-nav"></div>
+      <div class="p-4 md:p-7 space-y-6">
+
+        <!-- DASHBOARD -->
+        <section id="tab-dashboard" class="tab-panel space-y-6">
+          <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+            <div class="card"><div class="label">Sản phẩm</div><div id="stat-products" class="stat">0</div><div class="hint">Danh mục thuốc</div></div>
+            <div class="card"><div class="label">Tồn kho</div><div id="stat-stock" class="stat">0</div><div class="hint">Tổng số lượng còn</div></div>
+            <div class="card"><div class="label">Giá trị tồn</div><div id="stat-value" class="stat text-xl">0 đ</div><div class="hint">Theo đơn giá nhập</div></div>
+            <div class="card"><div class="label">Cấp phát hôm nay</div><div id="stat-orders" class="stat">0</div><div class="hint"><span id="stat-qty">0</span> đơn vị</div></div>
+            <div class="card"><div class="label">Cảnh báo</div><div id="stat-warning" class="stat text-rose-600">0</div><div id="stat-warning-detail" class="hint">Sắp hết / hết hạn</div></div>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-5">
+            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5">
+              <div class="flex items-center justify-between mb-4"><div class="font-bold">Tồn kho theo thuốc</div><button onclick="switchTab('products')" class="text-xs text-blue-600">Xem danh mục →</button></div>
+              <div class="h-72"><canvas id="stock-chart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5">
+              <div class="font-bold mb-4">Hoạt động gần đây</div>
+              <div id="recent-list" class="space-y-3 max-h-72 overflow-auto scrollbar"><div class="text-sm text-slate-400">Đang tải...</div></div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-2xl border border-amber-200 p-5"><div class="flex items-center justify-between"><b>≤ 30 ngày</b><span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs">Sắp hết hạn</span></div><div id="stat-expiring" class="text-3xl font-bold mt-3">0</div></div>
+            <div class="bg-white rounded-2xl border border-rose-200 p-5"><div class="flex items-center justify-between"><b>Đã hết hạn</b><span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 text-xs">Không cấp phát</span></div><div id="stat-expired" class="text-3xl font-bold mt-3">0</div></div>
+            <div class="bg-white rounded-2xl border border-orange-200 p-5"><div class="flex items-center justify-between"><b>Tồn thấp</b><span class="px-2 py-1 rounded-full bg-orange-50 text-orange-700 text-xs">Theo ngưỡng</span></div><div id="stat-low" class="text-3xl font-bold mt-3">0</div></div>
+          </div>
+        </section>
+
+        <!-- PRODUCTS -->
+        <section id="tab-products" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div><h2 class="font-bold">Danh mục sản phẩm</h2><p class="text-xs text-slate-400 mt-1">Dữ liệu từ tab <b>Sản phẩm</b></p></div>
+            <input id="product-search" class="input md:w-80" placeholder="Tìm mã, tên, hoạt chất...">
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap">
+            <table class="min-w-[900px] w-full text-sm"><thead><tr class="thead"><th>Mã SP</th><th>Tên sản phẩm</th><th>Hoạt chất</th><th>Đơn vị</th><th>Nhóm</th><th>Giá nhập</th><th>Tồn tối thiểu</th><th>Trạng thái</th></tr></thead><tbody id="products-tbody"></tbody></table>
+          </div>
+        </section>
+
+        <!-- IMPORT -->
+        <section id="tab-import" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <div class="flex items-start gap-3 mb-5"><div class="p-2 rounded-lg bg-emerald-50 text-emerald-600"><i data-lucide="package-plus"></i></div><div><h2 class="font-bold">Nhập kho</h2><p class="text-sm text-slate-500">Dữ liệu nhập kho được lưu theo từng lô và hạn sử dụng.</p></div></div>
+            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">Phiên bản backend hiện tại đã chuẩn hóa tab <b>Nhập kho</b>. Chức năng ghi phiếu nhập sẽ được bật sau khi API nhập kho được kết nối; tránh nhập trực tiếp bằng frontend khi chưa có kiểm soát giao dịch.</div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Ngày nhập</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lô</th><th>SL nhập</th><th>SL còn</th><th>HSD</th><th>Đơn giá</th><th>Nhà cung cấp</th></tr></thead><tbody id="imports-tbody"></tbody></table></div>
+        </section>
+
+        <!-- EXPORT -->
+        <section id="tab-export" class="tab-panel hidden">
+          <div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-5 md:p-7">
+            <div class="flex items-start gap-3 mb-6"><div class="p-3 rounded-xl bg-blue-50 text-blue-600"><i data-lucide="package-minus"></i></div><div><h2 class="font-bold text-lg">Cấp phát thuốc theo FEFO</h2><p class="text-sm text-slate-500 mt-1">Hệ thống tự chọn lô có hạn sử dụng gần nhất trước. Không cấp phát lô đã hết hạn.</p></div></div>
+            <form id="export-form" class="grid md:grid-cols-2 gap-4">
+              <div class="md:col-span-2"><label class="field-label">Thuốc</label><select id="exp-code" class="input" required><option value="">-- Chọn thuốc --</option></select><div id="selected-stock" class="text-xs text-slate-400 mt-1"></div></div>
+              <div><label class="field-label">Số lượng cấp phát</label><input id="exp-qty" class="input" type="number" min="0.01" step="any" required></div>
+              <div><label class="field-label">Người nhận</label><input id="exp-receiver" class="input" required></div>
+              <div><label class="field-label">Bộ phận / Phòng ban</label><input id="exp-dept" class="input" required></div>
+              <div><label class="field-label">Người thực hiện</label><input id="exp-performer" class="input" value="Admin"></div>
+              <div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="exp-note" class="input min-h-24"></textarea></div>
+              <div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-xl border border-slate-200">Hủy</button><button id="export-submit" type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium">Xác nhận cấp phát</button></div>
+            </form>
+          </div>
+        </section>
+
+        <!-- HISTORY -->
+        <section id="tab-history" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center gap-3 md:justify-between"><div><h2 class="font-bold">Lịch sử cấp phát</h2><p class="text-xs text-slate-400">Tab <b>Xuất kho</b></p></div><input id="history-search" class="input md:w-80" placeholder="Tìm mã phiếu, thuốc, người nhận..."></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1000px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Thời gian</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lượng</th><th>Người nhận</th><th>Bộ phận</th><th>Người thực hiện</th><th>Ghi chú</th></tr></thead><tbody id="history-tbody"></tbody></table></div>
+        </section>
+
+        <!-- CATALOG -->
+        <section id="tab-catalog" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Danh mục hệ thống</h2><p class="text-sm text-slate-500 mt-1">Dữ liệu từ tab <b>Danh mục</b>.</p></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[700px] w-full text-sm"><thead><tr class="thead"><th>Loại</th><th>Mã</th><th>Tên</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody id="catalog-tbody"></tbody></table></div>
+        </section>
+
+        <!-- AUDIT -->
+        <section id="tab-audit" class="tab-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Audit Log</h2><p class="text-sm text-slate-500 mt-1">Theo dõi các thao tác hệ thống.</p></div>
+          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Thời gian</th><th>Hành động</th><th>Mã phiếu</th><th>Mã SP</th><th>Số lượng</th><th>Người thực hiện</th><th>Nội dung</th></tr></thead><tbody id="audit-tbody"></tbody></table></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="fixed right-4 bottom-4 hidden z-50 max-w-sm"></div>
+
 <script>
-const state={token:localStorage.getItem('kho_v4_token')||'',user:null,data:null,chart:null,tab:'dashboard'};const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const num=n=>Number(n||0).toLocaleString('vi-VN');const money=n=>Number(n||0).toLocaleString('vi-VN')+' đ';const dt=v=>v?new Date(v).toLocaleString('vi-VN'):'';
-function toast(msg,ok=true){const x=document.createElement('div');x.className='toast '+(ok?'bg-emerald-600':'bg-rose-600');x.textContent=msg;$('toast-root').appendChild(x);setTimeout(()=>x.remove(),3500)}
-let busy=0;
-function setLoading(on){busy=Math.max(0,busy+(on?1:-1));$('loading').classList.toggle('hide',busy===0)}
-const GAS_API_URL='https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec';
-let apiSeq=0;
-function apiError(msg){const e=new Error(msg||'API lỗi');if(/phiên đăng nhập đã hết hạn/i.test(e.message)){localStorage.removeItem('kho_v4_token');state.token='';state.user=null;$('app-view').classList.add('hide');$('login-view').classList.remove('hide');$('login-msg').textContent=e.message}return e}
-function run(name,args=[]){
-  setLoading(true);
-  return new Promise((resolve,reject)=>{
-    const cb='__khoCb_'+Date.now()+'_'+(++apiSeq);
-    const script=document.createElement('script');
-    let timer=null,done=false;
-    const cleanup=()=>{if(done)return;done=true;clearTimeout(timer);delete window[cb];script.remove()};
-    window[cb]=(result)=>{cleanup();setLoading(false);if(result&&result.status==='error')reject(apiError(result.message));else resolve(result)};
-    script.onerror=()=>{cleanup();setLoading(false);reject(new Error('Không tải được API. Deployment /exec cũ không phản hồi. Kiểm tra Apps Script phải là Web app, Execute as: Me và Who has access: Anyone.'))};
-    const payload=encodeURIComponent(JSON.stringify({action:name,args:Array.isArray(args)?args:[]}));
-    const base=GAS_API_URL;
-    if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(base)){cleanup();setLoading(false);reject(new Error('URL Web App khong hop le. Phai co dang https://script.google.com/macros/s/.../exec'));return}
-    script.src=base+'?callback='+encodeURIComponent(cb)+'&payload='+payload+'&t='+Date.now();
-    timer=setTimeout(()=>{cleanup();setLoading(false);reject(new Error('API không phản hồi sau 30 giây. Kiểm tra deployment /exec cũ và quyền Anyone.'))},30000);
-    document.body.appendChild(script);
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec';
+const state = { products: [], stock: [], exports: [], dashboard: null, imports: [], catalog: [], audit: [], chart: null };
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const money = v => Number(v || 0).toLocaleString('vi-VN') + ' đ';
+const num = v => Number(v || 0).toLocaleString('vi-VN');
+const dateText = v => {
+  if (!v) return '';
+  const d = new Date(v);
+  return isNaN(d) ? esc(v) : d.toLocaleString('vi-VN');
+};
+
+function toast(message, type='info') {
+  const el = $('toast');
+  const cls = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
+  el.className = `toast fixed right-4 bottom-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg text-white text-sm ${cls}`;
+  el.textContent = message;
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+async function apiGet(action) {
+  const res = await fetch(`${GAS_API_URL}?action=${encodeURIComponent(action)}&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data && data.status === 'error') throw new Error(data.message || 'API lỗi');
+  return data;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(GAS_API_URL, { method: 'POST', headers: {'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+function setLoading(tbodyId, cols, text='Đang tải dữ liệu...') {
+  $(tbodyId).innerHTML = `<tr><td colspan="${cols}" class="p-6 text-center text-slate-400">${esc(text)}</td></tr>`;
+}
+
+function emptyRow(cols, text='Chưa có dữ liệu') {
+  return `<tr><td colspan="${cols}" class="p-8 text-center text-slate-400">${esc(text)}</td></tr>`;
+}
+
+const tabTitles = { dashboard:'Dashboard tổng quan', products:'Danh mục sản phẩm', import:'Nhập kho', export:'Cấp phát thuốc', history:'Lịch sử cấp phát', catalog:'Danh mục hệ thống', audit:'Audit Log' };
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  const panel = $(`tab-${name}`);
+  if (panel) panel.classList.remove('hidden');
+  document.querySelectorAll(`[data-tab="${name}"]`).forEach(el => el.classList.add('active'));
+  $('page-title').textContent = tabTitles[name] || name;
+  if (name === 'products') renderProducts();
+  if (name === 'import') renderImports();
+  if (name === 'history') renderHistory();
+  if (name === 'catalog') renderCatalog();
+  if (name === 'audit') renderAudit();
+  if (name === 'export') populateExportSelect();
+}
+
+async function loadAll() {
+  $('api-status').textContent = 'Đang tải dữ liệu...';
+  $('api-status').className = 'text-sm font-medium text-amber-600 mt-1';
+  try {
+    const [dashboard, products, stock, exports] = await Promise.all([
+      apiGet('getDashboard'), apiGet('getProducts'), apiGet('getStock'), apiGet('getExportHistory')
+    ]);
+    state.dashboard = dashboard;
+    state.products = (Array.isArray(products) ? products : []).map(p => ({
+      code: p['Mã SP'] || '', name: p['Tên sản phẩm'] || '', activeIngredient: p['Hoạt chất'] || '', unit: p['Đơn vị'] || '',
+      group: p['Nhóm thuốc'] || '', cost: p['Giá nhập'] || 0, price: p['Giá xuất'] || 0, minimum: p['Tồn tối thiểu'] || 0, status: p['Trạng thái'] || 'ACTIVE', note: p['Ghi chú'] || ''
+    }));
+    state.stock = Array.isArray(stock) ? stock : [];
+    state.exports = Array.isArray(exports) ? exports : [];
+    state.imports = dashboard.imports || [];
+    state.catalog = dashboard.catalog || [];
+    state.audit = dashboard.audit || [];
+    renderDashboard();
+    renderProducts();
+    populateExportSelect();
+    $('api-status').textContent = 'Đã kết nối Google Sheets';
+    $('api-status').className = 'text-sm font-medium text-emerald-600 mt-1';
+  } catch (err) {
+    console.error(err);
+    $('api-status').textContent = 'Lỗi kết nối API';
+    $('api-status').className = 'text-sm font-medium text-rose-600 mt-1';
+    toast('Không tải được dữ liệu: ' + err.message, 'error');
+  }
+}
+
+function renderDashboard() {
+  const d = state.dashboard || {};
+  $('stat-products').textContent = num(d.products);
+  $('stat-stock').textContent = num(d.totalStock);
+  $('stat-value').textContent = money(d.stockValue);
+  $('stat-orders').textContent = num(d.todayOrders);
+  $('stat-qty').textContent = num(d.todayExportQty);
+  $('stat-low').textContent = num(d.lowStock);
+  $('stat-expired').textContent = num(d.expired);
+  $('stat-expiring').textContent = num(d.expiringSoon);
+  $('stat-warning').textContent = num((d.lowStock || 0) + (d.expired || 0));
+  $('stat-warning-detail').textContent = `${num(d.lowStock)} tồn thấp · ${num(d.expired)} hết hạn`;
+
+  const recent = Array.isArray(d.recentActivities) ? d.recentActivities : [];
+  $('recent-list').innerHTML = recent.length ? recent.map(r => `
+    <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
+      <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><i data-lucide="package-minus" class="w-4 h-4"></i></div>
+      <div class="min-w-0"><div class="text-sm font-medium truncate">${esc(r['Tên sản phẩm'] || r['Mã SP'])}</div><div class="text-xs text-slate-500">${num(r['Tổng số lượng'])} · ${esc(r['Người nhận'])} · ${esc(r['Bộ phận'])}</div><div class="text-[11px] text-slate-400 mt-1">${dateText(r['Thời gian'])}</div></div>
+    </div>`).join('') : '<div class="text-sm text-slate-400">Chưa có hoạt động.</div>';
+
+  if (window.lucide) lucide.createIcons();
+  drawStockChart();
+}
+
+function drawStockChart() {
+  const labels = state.stock.filter(x => Number(x.quantity) > 0).sort((a,b) => Number(b.quantity)-Number(a.quantity)).slice(0,10);
+  const ctx = $('stock-chart').getContext('2d');
+  if (state.chart) state.chart.destroy();
+  state.chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels.map(x => x.name || x.code), datasets: [{ label:'Tồn kho', data: labels.map(x => Number(x.quantity)||0), borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{beginAtZero:true} } }
   });
 }
-async function boot(){if(!state.token){$('login-view').classList.remove('hide');$('api-status').textContent='API: '+GAS_API_URL;return}try{const m=await run('me',[state.token]);state.user=m.user;await loadData();$('login-view').classList.add('hide');$('app-view').classList.remove('hide');$('who').textContent=state.user.name;$('role').textContent=state.user.role+(state.user.department?' · '+state.user.department:'');$('sub').textContent='Google Apps Script API · '+(state.user.forceChange?'Cần đổi mật khẩu':'Đã đăng nhập');renderNav();showTab('dashboard');if(state.user.forceChange)setTimeout(()=>changePassword(true),100)}catch(e){localStorage.removeItem('kho_v4_token');state.token='';$('login-view').classList.remove('hide');$('login-msg').textContent=e.message;$('api-status').textContent='API lỗi: '+e.message;$('api-status').className='text-xs text-rose-600 mt-2'}}
-async function loadData(){const d=await run('getApp',[state.token]);state.data=d;state.user=d.user;$('sub').textContent='Kết nối Google Sheets · phiên '+(state.user.forceChange?'cần đổi mật khẩu':'đang hoạt động')}
-function renderDashboard(){const d=state.data.dashboard,s=state.data.stock;$('page-dashboard').innerHTML=`<div class="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-5"><div class="card p-4"><div class="text-xs text-slate-400">Sản phẩm</div><div class="text-2xl font-bold mt-1">${num(d.products)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Tồn kho</div><div class="text-2xl font-bold mt-1">${num(d.totalStock)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Giá trị tồn</div><div class="text-2xl font-bold mt-1">${money(d.stockValue)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Cấp phát hôm nay</div><div class="text-2xl font-bold mt-1">${num(d.todayOrders)}</div><div class="text-xs text-slate-400">${num(d.todayExportQty)} đơn vị</div></div><div class="card p-4"><div class="text-xs text-slate-400">Tồn thấp</div><div class="text-2xl font-bold mt-1 text-orange-600">${num(d.lowStock)}</div></div></div><div class="grid lg:grid-cols-3 gap-5"><div class="lg:col-span-2 card p-5"><div class="font-bold mb-4">Tồn kho theo sản phẩm</div><div class="h-80"><canvas id="stock-chart"></canvas></div></div><div class="card p-5"><div class="font-bold mb-4">Hoạt động gần đây</div><div class="space-y-3 max-h-80 overflow-auto">${d.recentActivities.map(r=>`<div class="border-b pb-2"><div class="text-sm font-semibold">${esc(r['Mã phiếu cấp phát'])}</div><div class="text-xs text-slate-500">${esc(r['Tên sản phẩm'])} · ${num(r['Tổng số lượng'])} · ${esc(r['Bộ phận'])}</div><div class="text-xs text-slate-400">${dt(r['Thời gian'])} · <span class="badge green">LOCKED</span></div></div>`).join('')||'<div class="text-sm text-slate-400">Chưa có hoạt động.</div>'}</div></div></div><div class="grid md:grid-cols-3 gap-4 mt-5"><div class="card p-5 border-amber-200"><b>Sắp hết hạn ≤ 30 ngày</b><div class="text-3xl font-bold mt-2">${num(d.expiringSoon)}</div></div><div class="card p-5 border-rose-200"><b>Đã hết hạn</b><div class="text-3xl font-bold mt-2">${num(d.expired)}</div></div><div class="card p-5 border-orange-200"><b>Cảnh báo tồn thấp</b><div class="text-3xl font-bold mt-2">${num(d.lowStock)}</div></div></div>`;if(state.chart)state.chart.destroy();state.chart=new Chart($('stock-chart'),{type:'bar',data:{labels:s.slice(0,20).map(x=>x.code),datasets:[{label:'Tồn',data:s.slice(0,20).map(x=>x.quantity)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}})}
-function renderProducts(){const canDelete=state.user.role==='ADMIN';$('page-products').innerHTML=`<div class="card p-5 mb-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between"><div><h2 class="font-bold text-lg">CRUD Sản phẩm</h2><div class="text-sm text-slate-400">Kho được tạo/sửa; chỉ Admin được xóa.</div></div><div class="flex gap-2"><input id="p-search" class="input md:w-72" placeholder="Tìm mã, tên, hoạt chất"><button id="p-add" class="px-4 py-2 rounded-xl bg-blue-600 text-white">+ Sản phẩm</button></div></div><div class="card overflow-auto"><table class="min-w-[1000px] w-full text-sm"><thead><tr><th class="th">Mã</th><th class="th">Tên</th><th class="th">Hoạt chất</th><th class="th">Đơn vị</th><th class="th">Nhóm</th><th class="th">Giá nhập</th><th class="th">Tồn tối thiểu</th><th class="th">Trạng thái</th><th class="th">Thao tác</th></tr></thead><tbody id="p-body"></tbody></table></div>`;const draw=()=>{const q=($('p-search').value||'').toLowerCase();$('p-body').innerHTML=state.data.products.filter(p=>(p.code+' '+p.name+' '+p.activeIngredient).toLowerCase().includes(q)).map(p=>`<tr class="border-b"><td class="td font-semibold">${esc(p.code)}</td><td class="td">${esc(p.name)}</td><td class="td">${esc(p.activeIngredient)}</td><td class="td">${esc(p.unit)}</td><td class="td">${esc(p.group)}</td><td class="td">${money(p.cost)}</td><td class="td">${num(p.minimum)}</td><td class="td"><span class="badge ${p.status==='ACTIVE'?'green':'red'}">${p.status}</span></td><td class="td"><button class="text-blue-600 mr-3" onclick="editProduct('${encodeURIComponent(p.code)}')">Sửa</button>${canDelete?`<button class="text-rose-600" onclick="deleteProduct('${encodeURIComponent(p.code)}')">Xóa</button>`:''}</td></tr>`).join('')||'<tr><td colspan="9" class="td text-center text-slate-400">Không có dữ liệu</td></tr>'};$('p-search').oninput=draw;$('p-add').onclick=()=>productModal();draw()}
-function productModal(item){const cat=state.data.catalog;const units=cat.filter(x=>x['Loại']==='Đơn vị'),groups=cat.filter(x=>x['Loại']==='Nhóm thuốc');$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">${item?'Sửa':'Thêm'} sản phẩm</h3><form id="pf" class="grid md:grid-cols-2 gap-4"><input type="hidden" id="old"><div><label class="text-xs font-bold">Mã SP</label><input id="code" class="input" required></div><div><label class="text-xs font-bold">Tên</label><input id="name" class="input" required></div><div><label class="text-xs font-bold">Hoạt chất</label><input id="active" class="input"></div><div><label class="text-xs font-bold">Đơn vị</label><select id="unit" class="input" required>${units.map(x=>`<option value="${esc(x['Mã'])}">${esc(x['Tên'])}</option>`).join('')}</select></div><div><label class="text-xs font-bold">Nhóm</label><select id="group" class="input" required>${groups.map(x=>`<option value="${esc(x['Mã'])}">${esc(x['Tên'])}</option>`).join('')}</select></div><div><label class="text-xs font-bold">Giá nhập</label><input id="cost" type="number" min="0" class="input"></div><div><label class="text-xs font-bold">Giá xuất</label><input id="price" type="number" min="0" class="input"></div><div><label class="text-xs font-bold">Tồn tối thiểu</label><input id="min" type="number" min="0" class="input"></div><div><label class="text-xs font-bold">Trạng thái</label><select id="status" class="input"><option>ACTIVE</option><option>INACTIVE</option></select></div><div class="md:col-span-2"><label class="text-xs font-bold">Ghi chú</label><textarea id="note" class="input"></textarea></div><div class="md:col-span-2 flex justify-end gap-2"><button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-xl">Hủy</button><button class="px-4 py-2 bg-blue-600 text-white rounded-xl">Lưu</button></div></form>`;if(item){$('old').value=item.code;$('code').value=item.code;$('name').value=item.name;$('active').value=item.activeIngredient;$('unit').value=item.unit;$('group').value=item.group;$('cost').value=item.cost;$('price').value=item.price;$('min').value=item.minimum;$('status').value=item.status;$('note').value=item.note} $('pf').onsubmit=async e=>{e.preventDefault();try{await run(item?'updateProduct':'createProduct',[state.token,{oldCode:$('old').value,code:$('code').value,name:$('name').value,activeIngredient:$('active').value,unit:$('unit').value,group:$('group').value,cost:Number($('cost').value||0),price:Number($('price').value||0),minimum:Number($('min').value||0),status:$('status').value,note:$('note').value}]);closeModal();toast('Đã lưu sản phẩm');await loadData();renderProducts()}catch(x){toast(x.message,false)}};openModal()}
-async function editProduct(code){const p=state.data.products.find(x=>x.code===decodeURIComponent(code));if(p)productModal(p)}async function deleteProduct(code){code=decodeURIComponent(code);if(!confirm('Xóa '+code+'?'))return;try{await run('deleteProduct',[state.token,{code}]);toast('Đã xóa');await loadData();renderProducts()}catch(e){toast(e.message,false)}}
-function renderImport(){const ps=state.data.products.filter(p=>p.status==='ACTIVE');$('page-import').innerHTML=`<div class="card p-5 mb-4 flex justify-between"><div><h2 class="font-bold text-lg">Nhập kho</h2><p class="text-sm text-slate-400">Nhập theo lô, tự cộng tồn.</p></div><button id="new-i" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">+ Phiếu nhập</button></div><div class="card overflow-auto"><table class="min-w-[1100px] w-full text-sm"><thead><tr><th class="th">Phiếu</th><th class="th">Ngày</th><th class="th">Mã SP</th><th class="th">Tên</th><th class="th">Lô</th><th class="th">SL nhập</th><th class="th">SL còn</th><th class="th">HSD</th><th class="th">Đơn giá</th><th class="th">NCC</th><th class="th">Người nhập</th></tr></thead><tbody>${state.data.imports.slice().reverse().map(r=>`<tr class="border-b"><td class="td font-semibold">${esc(r['Mã phiếu nhập'])}</td><td class="td">${dt(r['Ngày nhập'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td">${esc(r['Số lô'])}</td><td class="td">${num(r['Số lượng nhập'])}</td><td class="td font-semibold">${num(r['Số lượng còn'])}</td><td class="td">${dt(r['Hạn sử dụng'])}</td><td class="td">${money(r['Đơn giá'])}</td><td class="td">${esc(r['Nhà cung cấp'])}</td><td class="td">${esc(r['Người nhập'])}</td></tr>`).join('')}</tbody></table></div>`;$('new-i').onclick=()=>importModal(ps)}
-function importModal(ps){$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">Tạo phiếu nhập kho</h3><form id="if" class="grid md:grid-cols-2 gap-4"><div class="md:col-span-2"><label class="text-xs font-bold">Sản phẩm</label><select id="icode" class="input" required>${ps.map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('')}</select></div><div><label class="text-xs font-bold">Số lô</label><input id="ilot" class="input" required></div><div><label class="text-xs font-bold">Ngày nhập</label><input id="idate" type="date" class="input" required></div><div><label class="text-xs font-bold">Hạn sử dụng</label><input id="iexp" type="date" class="input" required></div><div><label class="text-xs font-bold">Số lượng</label><input id="iqty" type="number" min="0.01" step="any" class="input" required></div><div><label class="text-xs font-bold">Đơn giá</label><input id="iprice" type="number" min="0" step="any" class="input" required></div><div><label class="text-xs font-bold">Nhà cung cấp</label><input id="isup" class="input"></div><div class="md:col-span-2"><label class="text-xs font-bold">Ghi chú</label><textarea id="inote" class="input"></textarea></div><div class="md:col-span-2 flex justify-end gap-2"><button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-xl">Hủy</button><button class="px-4 py-2 bg-emerald-600 text-white rounded-xl">Nhập kho</button></div></form>`;$('idate').value=new Date().toISOString().slice(0,10);$('if').onsubmit=async e=>{e.preventDefault();try{await run('createImport',[state.token,{code:$('icode').value,lot:$('ilot').value,importDate:$('idate').value,expiry:$('iexp').value,quantity:Number($('iqty').value),price:Number($('iprice').value),supplier:$('isup').value,note:$('inote').value}]);closeModal();toast('Nhập kho thành công');await loadData();renderImport()}catch(x){toast(x.message,false)}};openModal()}
-function renderIssue(){const ps=state.data.products.filter(p=>p.status==='ACTIVE');$('page-issue').innerHTML=`<div class="max-w-3xl mx-auto card p-6"><h2 class="font-bold text-lg">Cấp phát FEFO</h2><p class="text-sm text-slate-400 mt-1 mb-5">Sau khi xác nhận, phiếu được <b>LOCKED</b> ngay và không có API sửa/xóa phiếu.</p><form id="ef" class="grid md:grid-cols-2 gap-4"><div class="md:col-span-2"><label class="text-xs font-bold">Sản phẩm</label><select id="ecode" class="input" required>${ps.map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('')}</select><div id="stock-hint" class="text-xs text-slate-400 mt-1"></div></div><div><label class="text-xs font-bold">Số lượng</label><input id="eqty" type="number" min="0.01" step="any" class="input" required></div><div><label class="text-xs font-bold">Người nhận</label><input id="erec" class="input" required></div><div><label class="text-xs font-bold">Bộ phận</label><input id="edept" class="input" value="${esc(state.user.department||'')}" ${state.user.role==='CAP_PHAT'&&state.user.department?'readonly':''} required></div><div class="md:col-span-2"><label class="text-xs font-bold">Ghi chú</label><textarea id="enote" class="input"></textarea></div><div class="md:col-span-2 flex justify-end"><button id="issue-btn" class="px-5 py-2 rounded-xl bg-blue-600 text-white font-semibold">Xác nhận & khóa phiếu</button></div></form></div>`;const hint=()=>{const p=state.data.stock.find(x=>x.code===$('ecode').value);$('stock-hint').textContent=p?'Tồn khả dụng: '+num(p.quantity)+' '+p.unit:''};$('ecode').onchange=hint;hint();$('ef').onsubmit=async e=>{e.preventDefault();$('issue-btn').disabled=true;try{const r=await run('createIssue',[state.token,{code:$('ecode').value,quantity:Number($('eqty').value),receiver:$('erec').value,department:$('edept').value,note:$('enote').value}]);toast('Cấp phát thành công · '+r.issueId);await loadData();renderIssue();showTab('history')}catch(x){toast(x.message,false)}finally{$('issue-btn').disabled=false}}}
-function renderHistory(){const rows=state.data.exports.slice().reverse();$('page-history').innerHTML=`<div class="card p-5 mb-4"><h2 class="font-bold text-lg">Lịch sử cấp phát</h2><p class="text-sm text-slate-400">Phiếu đã cấp phát đều ở trạng thái LOCKED và chỉ được xem.</p></div><div class="card overflow-auto"><table class="min-w-[1250px] w-full text-sm"><thead><tr><th class="th">Phiếu</th><th class="th">Thời gian</th><th class="th">Sản phẩm</th><th class="th">SL</th><th class="th">Người nhận</th><th class="th">Bộ phận</th><th class="th">Người thực hiện</th><th class="th">Trạng thái</th><th class="th">Chi tiết</th></tr></thead><tbody>${rows.map(r=>`<tr class="border-b"><td class="td font-semibold">${esc(r['Mã phiếu cấp phát'])}</td><td class="td">${dt(r['Thời gian'])}</td><td class="td">${esc(r['Mã SP'])} - ${esc(r['Tên sản phẩm'])}</td><td class="td font-semibold">${num(r['Tổng số lượng'])}</td><td class="td">${esc(r['Người nhận'])}</td><td class="td">${esc(r['Bộ phận'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td"><span class="badge green">${esc(r['Trạng thái']||'LOCKED')}</span></td><td class="td"><button class="text-blue-600" onclick="issueDetail('${encodeURIComponent(r['Mã phiếu cấp phát'])}')">Xem</button></td></tr>`).join('')||'<tr><td colspan="9" class="td text-center text-slate-400">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`}
-async function issueDetail(id){try{const r=await run('getIssueDetails',[state.token,decodeURIComponent(id)]);$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">Chi tiết ${esc(decodeURIComponent(id))}</h3><div class="overflow-auto"><table class="w-full text-sm"><thead><tr><th class="th">Lô</th><th class="th">HSD</th><th class="th">SL</th><th class="th">Đơn giá</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td class="td">${esc(x['Số lô'])}</td><td class="td">${dt(x['Hạn sử dụng'])}</td><td class="td">${num(x['Số lượng xuất'])}</td><td class="td">${money(x['Đơn giá'])}</td></tr>`).join('')}</tbody></table></div><div class="mt-4 text-right"><span class="badge green">LOCKED</span><button onclick="closeModal()" class="ml-2 px-4 py-2 border rounded-xl">Đóng</button></div>`;openModal()}catch(e){toast(e.message,false)}}
-function renderReports(){const deps=[...new Set(state.data.exports.map(x=>String(x['Bộ phận']||'').trim()).filter(Boolean))].sort();$('page-reports').innerHTML=`<div class="card p-5 mb-5"><div class="flex flex-col lg:flex-row gap-3 lg:items-end justify-between"><div><h2 class="font-bold text-lg">Báo cáo cấp phát theo tháng / bộ phận</h2><div class="text-sm text-slate-400">Dữ liệu lấy trực tiếp từ phiếu LOCKED.</div></div><div class="grid sm:grid-cols-3 gap-2"><input id="rmonth" type="month" class="input"><select id="rdept" class="input"><option value="">Tất cả bộ phận</option>${deps.map(x=>`<option>${esc(x)}</option>`).join('')}</select><select id="rprod" class="input"><option value="">Tất cả sản phẩm</option>${state.data.products.map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('')}</select></div></div><button id="rgo" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 text-white">Xem báo cáo</button></div><div id="report-out"></div>`;$('rmonth').value=new Date().toISOString().slice(0,7);if(state.user.role==='CAP_PHAT'&&state.user.department){$('rdept').value=state.user.department;$('rdept').disabled=true}$('rgo').onclick=runReport;runReport()}
-async function runReport(){try{const x=await run('getReport',[state.token,{month:$('rmonth').value,department:$('rdept').value,code:$('rprod').value}]);const r=x.report;$('report-out').innerHTML=`<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5"><div class="card p-4"><div class="text-xs text-slate-400">Số phiếu</div><div class="text-2xl font-bold">${num(r.orders)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Số lượng</div><div class="text-2xl font-bold">${num(r.quantity)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Bộ phận</div><div class="text-2xl font-bold">${num(r.departments.length)}</div></div><div class="card p-4"><div class="text-xs text-slate-400">Sản phẩm</div><div class="text-2xl font-bold">${num(r.products.length)}</div></div></div><div class="card p-5 overflow-auto"><table class="min-w-[1000px] w-full text-sm"><thead><tr><th class="th">Phiếu</th><th class="th">Thời gian</th><th class="th">Sản phẩm</th><th class="th">SL</th><th class="th">Người nhận</th><th class="th">Bộ phận</th><th class="th">Người thực hiện</th><th class="th">Trạng thái</th></tr></thead><tbody>${r.rows.map(q=>`<tr class="border-b"><td class="td">${esc(q['Mã phiếu cấp phát'])}</td><td class="td">${dt(q['Thời gian'])}</td><td class="td">${esc(q['Tên sản phẩm'])}</td><td class="td font-semibold">${num(q['Tổng số lượng'])}</td><td class="td">${esc(q['Người nhận'])}</td><td class="td">${esc(q['Bộ phận'])}</td><td class="td">${esc(q['Người thực hiện'])}</td><td class="td"><span class="badge green">LOCKED</span></td></tr>`).join('')||'<tr><td colspan="8" class="td text-center text-slate-400">Không có dữ liệu</td></tr>'}</tbody></table></div>`}catch(e){toast(e.message,false)}}
-async function renderUsers(){const x=await run('listUsers',[state.token]);$('page-users').innerHTML=`<div class="card p-5 mb-4 flex justify-between"><div><h2 class="font-bold text-lg">Quản lý người dùng</h2><div class="text-sm text-slate-400">Admin tạo, khóa/mở khóa tài khoản.</div></div><button id="u-add" class="px-4 py-2 rounded-xl bg-blue-600 text-white">+ Tài khoản</button></div><div class="card overflow-auto"><table class="min-w-[850px] w-full text-sm"><thead><tr><th class="th">Username</th><th class="th">Họ tên</th><th class="th">Vai trò</th><th class="th">Bộ phận</th><th class="th">Trạng thái</th><th class="th">Đăng nhập gần nhất</th><th class="th">Thao tác</th></tr></thead><tbody>${x.users.map(u=>`<tr class="border-b"><td class="td font-semibold">${esc(u.username)}</td><td class="td">${esc(u.name)}</td><td class="td">${esc(u.role)}</td><td class="td">${esc(u.department)}</td><td class="td"><span class="badge ${u.active==='ACTIVE'?'green':'red'}">${u.active}</span></td><td class="td">${dt(u.lastLogin)}</td><td class="td">${u.active==='ACTIVE'?`<button class="text-rose-600 mr-3" onclick="toggleUser('${encodeURIComponent(u.username)}',false)">Khóa</button>`:`<button class="text-emerald-600 mr-3" onclick="toggleUser('${encodeURIComponent(u.username)}',true)">Mở khóa</button>`}<button class="text-blue-600" onclick="resetUser('${encodeURIComponent(u.username)}')">Reset MK</button></td></tr>`).join('')}</tbody></table></div>`;$('u-add').onclick=userModal}
-function userModal(){$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">Tạo tài khoản</h3><form id="uf" class="grid md:grid-cols-2 gap-4"><div><label class="text-xs font-bold">Username</label><input id="un" class="input" required></div><div><label class="text-xs font-bold">Họ tên</label><input id="uname" class="input" required></div><div><label class="text-xs font-bold">Vai trò</label><select id="ur" class="input"><option value="KHO">KHO</option><option value="CAP_PHAT">CAP_PHAT</option><option value="ADMIN">ADMIN</option></select></div><div><label class="text-xs font-bold">Bộ phận</label><input id="ud" class="input"></div><div><label class="text-xs font-bold">Mật khẩu</label><input id="up" type="password" class="input" minlength="8" required></div><div class="md:col-span-2 flex justify-end gap-2"><button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-xl">Hủy</button><button class="px-4 py-2 bg-blue-600 text-white rounded-xl">Tạo</button></div></form>`;$('uf').onsubmit=async e=>{e.preventDefault();try{await run('saveUser',[state.token,{username:$('un').value,name:$('uname').value,role:$('ur').value,department:$('ud').value,password:$('up').value}]);closeModal();toast('Đã tạo tài khoản');renderUsers()}catch(x){toast(x.message,false)}};openModal()}
-async function toggleUser(u,a){try{await run('setUserStatus',[state.token,decodeURIComponent(u),a]);toast(a?'Đã mở khóa':'Đã khóa');renderUsers()}catch(e){toast(e.message,false)}}function resetUser(u){const username=decodeURIComponent(u);const pwd=prompt('Nhập mật khẩu mới cho '+username+' (ít nhất 8 ký tự):','');if(pwd===null)return;run('resetUserPassword',[state.token,username,pwd]).then(()=>{toast('Đã reset mật khẩu');renderUsers()}).catch(e=>toast(e.message,false))}
-function renderAudit(){const a=state.data.audit||[];$('page-audit').innerHTML=`<div class="card p-5 mb-4"><h2 class="font-bold text-lg">Audit Log</h2><div class="text-sm text-slate-400">Theo dõi đăng nhập, sản phẩm, nhập kho và cấp phát.</div></div><div class="card overflow-auto"><table class="min-w-[1100px] w-full text-sm"><thead><tr><th class="th">Thời gian</th><th class="th">Hành động</th><th class="th">Phiếu</th><th class="th">Mã SP</th><th class="th">SL</th><th class="th">Người thực hiện</th><th class="th">Nội dung</th></tr></thead><tbody>${a.slice().reverse().map(r=>`<tr class="border-b"><td class="td">${dt(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('')||'<tr><td colspan="7" class="td text-center text-slate-400">Chưa có log</td></tr>'}</tbody></table></div>`}
-function openModal(){$('modal').classList.remove('hide')}function closeModal(){$('modal').classList.add('hide')}
-function changePassword(force=false){$('modal-box').innerHTML=`<h3 class="font-bold text-lg mb-4">${force?'Đổi mật khẩu bắt buộc':'Đổi mật khẩu'}</h3><form id="cpf" class="space-y-4"><div><label class="text-xs font-bold">Mật khẩu hiện tại</label><input id="oldp" type="password" class="input" required></div><div><label class="text-xs font-bold">Mật khẩu mới</label><input id="newp" type="password" minlength="8" class="input" required></div><div class="flex justify-end"><button class="px-4 py-2 bg-blue-600 text-white rounded-xl">Lưu</button></div></form>`;openModal();$('cpf').onsubmit=async e=>{e.preventDefault();try{await run('changePassword',[state.token,$('oldp').value,$('newp').value]);state.user.forceChange=false;closeModal();toast('Đã đổi mật khẩu');}catch(x){toast(x.message,false)}}}
-$('login-form').onsubmit=async e=>{e.preventDefault();$('login-msg').textContent='';const btn=$('login-btn');btn.disabled=true;btn.textContent='Đang đăng nhập...';try{const r=await run('login',[$('login-user').value.trim(),$('login-pass').value]);state.token=r.token;state.user=r.user;localStorage.setItem('kho_v4_token',state.token);$('login-form').reset();await boot()}catch(x){$('login-msg').textContent=x.message||'Đăng nhập thất bại.'}finally{btn.disabled=false;btn.textContent='Đăng nhập'}};
-$('logout').onclick=async()=>{try{await run('logout',[state.token])}catch(e){}localStorage.removeItem('kho_v4_token');state.token='';state.user=null;$('app-view').classList.add('hide');$('login-view').classList.remove('hide')};$('refresh').onclick=async()=>{try{await loadData();showTab(state.tab);toast('Đã làm mới')}catch(e){toast(e.message,false)}};$('change-pass').onclick=()=>changePassword(false);$('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};boot();
-</script></body></html>
+
+function renderProducts() {
+  const q = ($('product-search')?.value || '').toLowerCase().trim();
+  const rows = state.products.filter(p => [p.code,p.name,p.activeIngredient,p.unit,p.group].join(' ').toLowerCase().includes(q));
+  $('products-tbody').innerHTML = rows.length ? rows.map(p => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50">
+      <td class="td font-semibold">${esc(p.code)}</td><td class="td">${esc(p.name)}</td><td class="td">${esc(p.activeIngredient || '')}</td><td class="td">${esc(p.unit || '')}</td><td class="td">${esc(p.group || '')}</td><td class="td">${money(p.cost)}</td><td class="td">${num(p.minimum)}</td>
+      <td class="td"><span class="badge ${String(p.status).toUpperCase()==='INACTIVE'?'badge-red':'badge-green'}">${esc(p.status || 'ACTIVE')}</span></td>
+    </tr>`).join('') : emptyRow(8);
+}
+
+function populateExportSelect() {
+  const select = $('exp-code');
+  const current = select.value;
+  const products = state.products.filter(p => String(p.status || 'ACTIVE').toUpperCase() !== 'INACTIVE');
+  select.innerHTML = '<option value="">-- Chọn thuốc --</option>' + products.map(p => `<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');
+  if (products.some(p => p.code === current)) select.value = current;
+  updateSelectedStock();
+}
+
+function updateSelectedStock() {
+  const code = $('exp-code').value;
+  const s = state.stock.find(x => String(x.code) === String(code));
+  $('selected-stock').textContent = code ? `Tồn hiện tại: ${num(s?.quantity || 0)} ${s?.unit || ''}` : '';
+}
+
+function renderHistory() {
+  const q = ($('history-search')?.value || '').toLowerCase().trim();
+  const rows = state.exports.filter(r => [r['Mã phiếu cấp phát'],r['Mã SP'],r['Tên sản phẩm'],r['Người nhận'],r['Bộ phận'],r['Người thực hiện']].join(' ').toLowerCase().includes(q));
+  $('history-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50"><td class="td font-semibold">${esc(r['Mã phiếu cấp phát'])}</td><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td font-semibold">${num(r['Tổng số lượng'])}</td><td class="td">${esc(r['Người nhận'])}</td><td class="td">${esc(r['Bộ phận'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(9);
+}
+
+function renderImports() {
+  const rows = state.imports || [];
+  $('imports-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
+    <tr class="border-b border-slate-100"><td class="td">${esc(r['Mã phiếu nhập'])}</td><td class="td">${dateText(r['Ngày nhập'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td">${esc(r['Số lô'])}</td><td class="td">${num(r['Số lượng nhập'])}</td><td class="td font-semibold">${num(r['Số lượng còn'])}</td><td class="td">${dateText(r['Hạn sử dụng'])}</td><td class="td">${money(r['Đơn giá'])}</td><td class="td">${esc(r['Nhà cung cấp'])}</td></tr>`).join('') : emptyRow(10, 'Chưa có dữ liệu nhập kho hoặc API chưa trả tab Nhập kho.');
+}
+
+function renderCatalog() {
+  const rows = state.catalog || [];
+  $('catalog-tbody').innerHTML = rows.length ? rows.map(r => `<tr class="border-b border-slate-100"><td class="td">${esc(r['Loại'])}</td><td class="td">${esc(r['Mã'])}</td><td class="td">${esc(r['Tên'])}</td><td class="td">${esc(r['Trạng thái'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(5, 'Chưa có dữ liệu danh mục hoặc API chưa trả tab Danh mục.');
+}
+
+function renderAudit() {
+  const rows = state.audit || [];
+  $('audit-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `<tr class="border-b border-slate-100"><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('') : emptyRow(7, 'Chưa có Audit Log hoặc API chưa trả tab AuditLog.');
+}
+
+$('export-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('export-submit');
+  const payload = {
+    action: 'exportFEFO',
+    code: $('exp-code').value.trim(),
+    quantity: Number($('exp-qty').value),
+    receiver: $('exp-receiver').value.trim(),
+    department: $('exp-dept').value.trim(),
+    performer: $('exp-performer').value.trim() || 'Admin',
+    note: $('exp-note').value.trim()
+  };
+  if (!payload.code || !payload.quantity || payload.quantity <= 0 || !payload.receiver || !payload.department) return toast('Vui lòng nhập đủ thông tin cấp phát.', 'error');
+  btn.disabled = true; btn.textContent = 'Đang xử lý...';
+  try {
+    const result = await apiPost(payload);
+    if (result.status !== 'success') throw new Error(result.message || 'Cấp phát thất bại');
+    toast(`Cấp phát thành công. Mã phiếu: ${result.exportId}`, 'success');
+    e.target.reset(); $('exp-performer').value = 'Admin';
+    await loadAll();
+    switchTab('history');
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Xác nhận cấp phát'; }
+});
+
+$('exp-code').addEventListener('change', updateSelectedStock);
+$('product-search').addEventListener('input', renderProducts);
+$('history-search').addEventListener('input', renderHistory);
+$('refresh-btn').addEventListener('click', loadAll);
+
+document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+// CSS class injection for compact reusable UI.
+const style = document.createElement('style');
+style.textContent = `
+.nav-btn{width:100%;display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-radius:.75rem;color:#475569;font-size:.875rem;font-weight:500}.nav-btn svg{width:18px;height:18px}.nav-btn:hover{background:#f8fafc}.nav-btn.active{background:#eff6ff;color:#2563eb}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem 1.1rem}.label{font-size:.75rem;color:#94a3b8;font-weight:600}.stat{font-size:1.7rem;font-weight:800;margin-top:.3rem}.hint{font-size:.7rem;color:#94a3b8;margin-top:.2rem}.input{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.65rem .8rem;font-size:.875rem;outline:none;background:#fff}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}.field-label{display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.4rem}.thead{background:#f8fafc;color:#64748b;font-size:.7rem;text-align:left}.thead th{padding:.8rem;white-space:nowrap}.td{padding:.75rem;white-space:nowrap}.badge{display:inline-flex;padding:.25rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700}.badge-green{background:#ecfdf5;color:#047857}.badge-red{background:#fef2f2;color:#b91c1c}`;
+document.head.appendChild(style);
+
+if (window.lucide) lucide.createIcons();
+loadAll();
+</script>
+</body>
+</html>
