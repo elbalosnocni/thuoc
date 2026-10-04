@@ -1,364 +1,102 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quản lý cấp phát thuốc</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
-    .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-    .table-wrap { overflow-x: auto; }
-    .toast { animation: toastIn .2s ease-out; }
-    @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  </style>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản lý kho thuốc</title>
+<script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script src="https://unpkg.com/lucide@latest"></script>
+<style>
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.scrollbar::-webkit-scrollbar{width:7px;height:7px}.scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}.table-wrap{overflow-x:auto}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem 1.1rem}.label{font-size:.75rem;color:#94a3b8;font-weight:600}.stat{font-size:1.7rem;font-weight:800;margin-top:.3rem}.hint{font-size:.7rem;color:#94a3b8;margin-top:.2rem}.input{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.65rem .8rem;font-size:.875rem;outline:none;background:#fff}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}.field-label{display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.4rem}.thead{background:#f8fafc;color:#64748b;font-size:.7rem;text-align:left}.thead th{padding:.8rem;white-space:nowrap}.td{padding:.7rem .8rem;white-space:nowrap}.badge{display:inline-flex;padding:.25rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700}.badge-green{background:#ecfdf5;color:#047857}.badge-red{background:#fef2f2;color:#b91c1c}.badge-amber{background:#fffbeb;color:#b45309}.nav-btn{width:100%;display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-radius:.75rem;color:#475569;font-size:.875rem;font-weight:500}.nav-btn:hover{background:#f8fafc}.nav-btn.active{background:#eff6ff;color:#2563eb}.modal{background:rgba(15,23,42,.45)}.toast{animation:toastIn .2s ease-out}@keyframes toastIn{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
-  <div class="min-h-screen flex">
-    <aside class="w-64 shrink-0 bg-white border-r border-slate-200 hidden md:flex flex-col">
-      <div class="px-5 py-5 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center"><i data-lucide="pill" class="w-5 h-5"></i></div>
-          <div>
-            <div class="font-bold">Quản lý thuốc</div>
-            <div class="text-xs text-slate-400">Nhập - xuất - tồn</div>
-          </div>
-        </div>
-      </div>
-      <nav class="p-3 space-y-1 flex-1">
-        <button class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
-        <button class="nav-btn" data-tab="products"><i data-lucide="package"></i><span>Sản phẩm</span></button>
-        <button class="nav-btn" data-tab="import"><i data-lucide="package-plus"></i><span>Nhập kho</span></button>
-        <button class="nav-btn" data-tab="export"><i data-lucide="package-minus"></i><span>Cấp phát thuốc</span></button>
-        <button class="nav-btn" data-tab="history"><i data-lucide="history"></i><span>Lịch sử cấp phát</span></button>
-        <button class="nav-btn" data-tab="catalog"><i data-lucide="list"></i><span>Danh mục</span></button>
-        <button class="nav-btn" data-tab="audit"><i data-lucide="shield-check"></i><span>Audit Log</span></button>
-      </nav>
-      <div class="p-4 border-t border-slate-100">
-        <div class="text-xs text-slate-400">Backend</div>
-        <div id="api-status" class="text-sm font-medium text-amber-600 mt-1">Đang kiểm tra...</div>
-      </div>
-    </aside>
+<div class="min-h-screen flex">
+<aside class="w-64 shrink-0 bg-white border-r border-slate-200 hidden md:flex flex-col">
+<div class="px-5 py-5 border-b border-slate-100"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center"><i data-lucide="pill"></i></div><div><div class="font-bold">Quản lý kho thuốc</div><div class="text-xs text-slate-400">Nhập · tồn · cấp phát · báo cáo</div></div></div></div>
+<nav class="p-3 space-y-1 flex-1">
+<button class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i>Dashboard</button>
+<button class="nav-btn" data-tab="products"><i data-lucide="package"></i>Sản phẩm</button>
+<button class="nav-btn" data-tab="import"><i data-lucide="package-plus"></i>Nhập kho</button>
+<button class="nav-btn" data-tab="export"><i data-lucide="package-minus"></i>Cấp phát</button>
+<button class="nav-btn" data-tab="reports"><i data-lucide="bar-chart-3"></i>Báo cáo tháng</button>
+<button class="nav-btn" data-tab="history"><i data-lucide="history"></i>Lịch sử</button>
+<button class="nav-btn" data-tab="catalog"><i data-lucide="list"></i>Danh mục</button>
+<button class="nav-btn" data-tab="audit"><i data-lucide="shield-check"></i>Audit Log</button>
+</nav><div class="p-4 border-t border-slate-100"><div class="text-xs text-slate-400">Backend</div><div id="api-status" class="text-sm font-medium text-amber-600 mt-1">Đang kiểm tra...</div></div>
+</aside>
+<main class="flex-1 min-w-0"><header class="h-16 bg-white border-b border-slate-200 px-4 md:px-7 flex items-center justify-between sticky top-0 z-20"><div><h1 id="page-title" class="font-bold text-lg md:text-xl">Dashboard tổng quan</h1><div class="text-xs text-slate-400 hidden md:block">Quy trình khép kín trên Google Sheets</div></div><button id="refresh-btn" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm flex gap-2 items-center"><i data-lucide="refresh-cw" class="w-4 h-4"></i>Làm mới</button></header>
+<div class="md:hidden bg-white border-b border-slate-200 p-2 overflow-x-auto flex gap-1" id="mobile-nav"></div>
+<div class="p-4 md:p-7 space-y-6">
+<!-- DASHBOARD -->
+<section id="tab-dashboard" class="tab-panel space-y-6"><div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+<div class="card"><div class="label">Sản phẩm</div><div id="stat-products" class="stat">0</div><div class="hint">Danh mục</div></div><div class="card"><div class="label">Tồn kho</div><div id="stat-stock" class="stat">0</div><div class="hint">Đơn vị còn</div></div><div class="card"><div class="label">Giá trị tồn</div><div id="stat-value" class="stat text-xl">0 đ</div><div class="hint">Theo giá nhập</div></div><div class="card"><div class="label">Cấp phát hôm nay</div><div id="stat-orders" class="stat">0</div><div class="hint"><span id="stat-qty">0</span> đơn vị</div></div><div class="card"><div class="label">Cảnh báo</div><div id="stat-warning" class="stat text-rose-600">0</div><div class="hint">Tồn thấp + hết hạn</div></div>
+</div><div class="grid lg:grid-cols-3 gap-5"><div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5"><div class="font-bold mb-4">Tồn kho theo sản phẩm</div><div class="h-72"><canvas id="stock-chart"></canvas></div></div><div class="bg-white rounded-2xl border border-slate-200 p-5"><div class="font-bold mb-4">Hoạt động gần đây</div><div id="recent-list" class="space-y-3 max-h-72 overflow-auto scrollbar"></div></div></div>
+<div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-2xl border border-amber-200 p-5"><b>Sắp hết hạn ≤ 30 ngày</b><div id="stat-expiring" class="text-3xl font-bold mt-3">0</div></div><div class="bg-white rounded-2xl border border-rose-200 p-5"><b>Đã hết hạn</b><div id="stat-expired" class="text-3xl font-bold mt-3">0</div></div><div class="bg-white rounded-2xl border border-orange-200 p-5"><b>Tồn thấp</b><div id="stat-low" class="text-3xl font-bold mt-3">0</div></div></div></section>
 
-    <main class="flex-1 min-w-0">
-      <header class="h-16 bg-white border-b border-slate-200 px-4 md:px-7 flex items-center justify-between sticky top-0 z-20">
-        <div>
-          <h1 id="page-title" class="font-bold text-lg md:text-xl">Dashboard tổng quan</h1>
-          <div class="text-xs text-slate-400 hidden md:block">Theo dõi cấp phát và tồn kho thuốc</div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="refresh-btn" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Làm mới</span></button>
-        </div>
-      </header>
+<!-- PRODUCTS -->
+<section id="tab-products" class="tab-panel hidden space-y-4"><div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between"><div><h2 class="font-bold">CRUD Sản phẩm</h2><p class="text-xs text-slate-400">Tạo · sửa · chuyển INACTIVE · xóa khi không còn tồn</p></div><div class="flex gap-2"><input id="product-search" class="input md:w-72" placeholder="Tìm mã, tên, hoạt chất..."><button id="add-product" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium whitespace-nowrap">+ Sản phẩm</button></div></div>
+<div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Mã SP</th><th>Tên sản phẩm</th><th>Hoạt chất</th><th>Đơn vị</th><th>Nhóm</th><th>Giá nhập</th><th>Tồn tối thiểu</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="products-tbody"></tbody></table></div></section>
 
-      <div class="md:hidden bg-white border-b border-slate-200 p-2 overflow-x-auto flex gap-1" id="mobile-nav"></div>
-      <div class="p-4 md:p-7 space-y-6">
+<!-- IMPORT -->
+<section id="tab-import" class="tab-panel hidden space-y-4"><div class="bg-white rounded-2xl border border-slate-200 p-5"><div class="flex items-center justify-between"><div><h2 class="font-bold text-lg">Phiếu nhập kho</h2><p class="text-sm text-slate-500 mt-1">Nhập theo lô, tự khởi tạo tồn = số lượng nhập.</p></div><button id="new-import" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm">+ Tạo phiếu nhập</button></div></div>
+<div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1200px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Ngày nhập</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lô</th><th>SL nhập</th><th>SL còn</th><th>HSD</th><th>Đơn giá</th><th>NCC</th><th>Người nhập</th></tr></thead><tbody id="imports-tbody"></tbody></table></div></section>
 
-        <!-- DASHBOARD -->
-        <section id="tab-dashboard" class="tab-panel space-y-6">
-          <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
-            <div class="card"><div class="label">Sản phẩm</div><div id="stat-products" class="stat">0</div><div class="hint">Danh mục thuốc</div></div>
-            <div class="card"><div class="label">Tồn kho</div><div id="stat-stock" class="stat">0</div><div class="hint">Tổng số lượng còn</div></div>
-            <div class="card"><div class="label">Giá trị tồn</div><div id="stat-value" class="stat text-xl">0 đ</div><div class="hint">Theo đơn giá nhập</div></div>
-            <div class="card"><div class="label">Cấp phát hôm nay</div><div id="stat-orders" class="stat">0</div><div class="hint"><span id="stat-qty">0</span> đơn vị</div></div>
-            <div class="card"><div class="label">Cảnh báo</div><div id="stat-warning" class="stat text-rose-600">0</div><div id="stat-warning-detail" class="hint">Sắp hết / hết hạn</div></div>
-          </div>
+<!-- EXPORT -->
+<section id="tab-export" class="tab-panel hidden"><div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-5 md:p-7"><div class="flex items-start gap-3 mb-6"><div class="p-3 rounded-xl bg-blue-50 text-blue-600"><i data-lucide="package-minus"></i></div><div><h2 class="font-bold text-lg">Cấp phát theo FEFO</h2><p class="text-sm text-slate-500 mt-1">Tự chọn lô có HSD gần nhất; không cấp lô hết hạn; hỗ trợ tách nhiều lô.</p></div></div><form id="export-form" class="grid md:grid-cols-2 gap-4">
+<div class="md:col-span-2"><label class="field-label">Sản phẩm</label><select id="exp-code" class="input" required></select><div id="selected-stock" class="text-xs text-slate-400 mt-1"></div></div><div><label class="field-label">Số lượng</label><input id="exp-qty" class="input" type="number" min="0.01" step="any" required></div><div><label class="field-label">Người nhận</label><input id="exp-receiver" class="input" required></div><div><label class="field-label">Bộ phận / Phòng ban</label><input id="exp-dept" class="input" required></div><div><label class="field-label">Người thực hiện</label><input id="exp-performer" class="input" value="Admin"></div><div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="exp-note" class="input min-h-24"></textarea></div><div class="md:col-span-2 flex justify-end"><button id="export-submit" class="px-5 py-2 rounded-xl bg-blue-600 text-white font-medium">Xác nhận cấp phát</button></div></form></div></section>
 
-          <div class="grid lg:grid-cols-3 gap-5">
-            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5">
-              <div class="flex items-center justify-between mb-4"><div class="font-bold">Tồn kho theo thuốc</div><button onclick="switchTab('products')" class="text-xs text-blue-600">Xem danh mục →</button></div>
-              <div class="h-72"><canvas id="stock-chart"></canvas></div>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 p-5">
-              <div class="font-bold mb-4">Hoạt động gần đây</div>
-              <div id="recent-list" class="space-y-3 max-h-72 overflow-auto scrollbar"><div class="text-sm text-slate-400">Đang tải...</div></div>
-            </div>
-          </div>
+<!-- REPORT -->
+<section id="tab-reports" class="tab-panel hidden space-y-5"><div class="bg-white rounded-2xl border border-slate-200 p-5"><div class="flex flex-col lg:flex-row lg:items-end gap-3 justify-between"><div><h2 class="font-bold text-lg">Báo cáo cấp phát theo tháng / bộ phận</h2><p class="text-sm text-slate-500 mt-1">Lọc trực tiếp từ dữ liệu Xuất kho, không tạo số liệu trung gian.</p></div><div class="grid sm:grid-cols-3 gap-2 w-full lg:w-auto"><input id="report-month" type="month" class="input"><select id="report-dept" class="input"><option value="">Tất cả bộ phận</option></select><select id="report-product" class="input"><option value="">Tất cả sản phẩm</option></select></div><button id="report-run" class="px-4 py-2 rounded-xl bg-violet-600 text-white whitespace-nowrap">Xem báo cáo</button></div></div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="card"><div class="label">Số phiếu</div><div id="rep-orders" class="stat">0</div></div><div class="card"><div class="label">Tổng cấp phát</div><div id="rep-qty" class="stat">0</div></div><div class="card"><div class="label">Số bộ phận</div><div id="rep-depts" class="stat">0</div></div><div class="card"><div class="label">Số sản phẩm</div><div id="rep-products" class="stat">0</div></div></div>
+<div class="grid lg:grid-cols-2 gap-5"><div class="bg-white rounded-2xl border border-slate-200 p-5"><div class="font-bold mb-4">Theo bộ phận</div><div class="h-72"><canvas id="dept-chart"></canvas></div></div><div class="bg-white rounded-2xl border border-slate-200 p-5"><div class="font-bold mb-4">Theo sản phẩm</div><div class="h-72"><canvas id="product-chart"></canvas></div></div></div>
+<div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1000px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Thời gian</th><th>Mã SP</th><th>Sản phẩm</th><th>Số lượng</th><th>Người nhận</th><th>Bộ phận</th><th>Người thực hiện</th></tr></thead><tbody id="report-tbody"></tbody></table></div></section>
 
-          <div class="grid md:grid-cols-3 gap-4">
-            <div class="bg-white rounded-2xl border border-amber-200 p-5"><div class="flex items-center justify-between"><b>≤ 30 ngày</b><span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs">Sắp hết hạn</span></div><div id="stat-expiring" class="text-3xl font-bold mt-3">0</div></div>
-            <div class="bg-white rounded-2xl border border-rose-200 p-5"><div class="flex items-center justify-between"><b>Đã hết hạn</b><span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 text-xs">Không cấp phát</span></div><div id="stat-expired" class="text-3xl font-bold mt-3">0</div></div>
-            <div class="bg-white rounded-2xl border border-orange-200 p-5"><div class="flex items-center justify-between"><b>Tồn thấp</b><span class="px-2 py-1 rounded-full bg-orange-50 text-orange-700 text-xs">Theo ngưỡng</span></div><div id="stat-low" class="text-3xl font-bold mt-3">0</div></div>
-          </div>
-        </section>
+<!-- HISTORY -->
+<section id="tab-history" class="tab-panel hidden space-y-4"><div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between"><div><h2 class="font-bold">Lịch sử cấp phát</h2><p class="text-xs text-slate-400">Dữ liệu từ tab Xuất kho</p></div><input id="history-search" class="input md:w-80" placeholder="Tìm phiếu, thuốc, người nhận, bộ phận..."></div><div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1050px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Thời gian</th><th>Mã SP</th><th>Sản phẩm</th><th>SL</th><th>Người nhận</th><th>Bộ phận</th><th>Người thực hiện</th><th>Ghi chú</th></tr></thead><tbody id="history-tbody"></tbody></table></div></section>
+<section id="tab-catalog" class="tab-panel hidden space-y-4"><div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Danh mục hệ thống</h2></div><div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[700px] w-full text-sm"><thead><tr class="thead"><th>Loại</th><th>Mã</th><th>Tên</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody id="catalog-tbody"></tbody></table></div></section>
+<section id="tab-audit" class="tab-panel hidden space-y-4"><div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Audit Log</h2></div><div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1000px] w-full text-sm"><thead><tr class="thead"><th>Thời gian</th><th>Hành động</th><th>Mã phiếu</th><th>Mã SP</th><th>SL</th><th>Người thực hiện</th><th>Nội dung</th></tr></thead><tbody id="audit-tbody"></tbody></table></div></section>
+</div></main></div>
 
-        <!-- PRODUCTS -->
-        <section id="tab-products" class="tab-panel hidden space-y-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-            <div><h2 class="font-bold">Danh mục sản phẩm</h2><p class="text-xs text-slate-400 mt-1">Dữ liệu từ tab <b>Sản phẩm</b></p></div>
-            <input id="product-search" class="input md:w-80" placeholder="Tìm mã, tên, hoạt chất...">
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-200 table-wrap">
-            <table class="min-w-[900px] w-full text-sm"><thead><tr class="thead"><th>Mã SP</th><th>Tên sản phẩm</th><th>Hoạt chất</th><th>Đơn vị</th><th>Nhóm</th><th>Giá nhập</th><th>Tồn tối thiểu</th><th>Trạng thái</th></tr></thead><tbody id="products-tbody"></tbody></table>
-          </div>
-        </section>
+<!-- PRODUCT MODAL -->
+<div id="product-modal" class="modal fixed inset-0 hidden z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6"><div class="flex justify-between items-center mb-5"><div><h3 id="product-modal-title" class="font-bold text-lg">Thêm sản phẩm</h3><p class="text-xs text-slate-400">Thông tin danh mục chuẩn</p></div><button onclick="closeModal('product-modal')" class="p-2 hover:bg-slate-100 rounded-lg">✕</button></div><form id="product-form" class="grid md:grid-cols-2 gap-4"><input id="p-old-code" type="hidden"><div><label class="field-label">Mã SP *</label><input id="p-code" class="input" required></div><div><label class="field-label">Tên sản phẩm *</label><input id="p-name" class="input" required></div><div><label class="field-label">Hoạt chất</label><input id="p-active" class="input"></div><div><label class="field-label">Đơn vị *</label><select id="p-unit" class="input" required></select></div><div><label class="field-label">Nhóm thuốc *</label><select id="p-group" class="input" required></select></div><div><label class="field-label">Giá nhập</label><input id="p-cost" class="input" type="number" min="0" step="any"></div><div><label class="field-label">Giá xuất</label><input id="p-price" class="input" type="number" min="0" step="any"></div><div><label class="field-label">Tồn tối thiểu</label><input id="p-min" class="input" type="number" min="0" step="any"></div><div><label class="field-label">Trạng thái</label><select id="p-status" class="input"><option value="ACTIVE">ACTIVE - Đang dùng</option><option value="INACTIVE">INACTIVE - Ngừng dùng</option></select></div><div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="p-note" class="input"></textarea></div><div class="md:col-span-2 flex justify-end gap-2"><button type="button" onclick="closeModal('product-modal')" class="px-4 py-2 rounded-xl border">Hủy</button><button class="px-5 py-2 rounded-xl bg-blue-600 text-white">Lưu sản phẩm</button></div></form></div></div>
 
-        <!-- IMPORT -->
-        <section id="tab-import" class="tab-panel hidden space-y-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
-            <div class="flex items-start gap-3 mb-5"><div class="p-2 rounded-lg bg-emerald-50 text-emerald-600"><i data-lucide="package-plus"></i></div><div><h2 class="font-bold">Nhập kho</h2><p class="text-sm text-slate-500">Dữ liệu nhập kho được lưu theo từng lô và hạn sử dụng.</p></div></div>
-            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">Phiên bản backend hiện tại đã chuẩn hóa tab <b>Nhập kho</b>. Chức năng ghi phiếu nhập sẽ được bật sau khi API nhập kho được kết nối; tránh nhập trực tiếp bằng frontend khi chưa có kiểm soát giao dịch.</div>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Ngày nhập</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lô</th><th>SL nhập</th><th>SL còn</th><th>HSD</th><th>Đơn giá</th><th>Nhà cung cấp</th></tr></thead><tbody id="imports-tbody"></tbody></table></div>
-        </section>
+<!-- IMPORT MODAL -->
+<div id="import-modal" class="modal fixed inset-0 hidden z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6"><div class="flex justify-between items-center mb-5"><div><h3 class="font-bold text-lg">Tạo phiếu nhập kho</h3><p class="text-xs text-slate-400">Mỗi phiếu tương ứng một lô hàng</p></div><button onclick="closeModal('import-modal')" class="p-2 hover:bg-slate-100 rounded-lg">✕</button></div><form id="import-form" class="grid md:grid-cols-2 gap-4"><div><label class="field-label">Sản phẩm *</label><select id="i-code" class="input" required></select></div><div><label class="field-label">Số lô *</label><input id="i-lot" class="input" required></div><div><label class="field-label">Ngày nhập *</label><input id="i-date" class="input" type="date" required></div><div><label class="field-label">Hạn sử dụng *</label><input id="i-expiry" class="input" type="date" required></div><div><label class="field-label">Số lượng nhập *</label><input id="i-qty" class="input" type="number" min="0.01" step="any" required></div><div><label class="field-label">Đơn giá *</label><input id="i-price" class="input" type="number" min="0" step="any" required></div><div><label class="field-label">Nhà cung cấp</label><input id="i-supplier" class="input"></div><div><label class="field-label">Người nhập</label><input id="i-performer" class="input" value="Admin"></div><div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="i-note" class="input"></textarea></div><div class="md:col-span-2 flex justify-end gap-2"><button type="button" onclick="closeModal('import-modal')" class="px-4 py-2 rounded-xl border">Hủy</button><button id="import-submit" class="px-5 py-2 rounded-xl bg-emerald-600 text-white">Xác nhận nhập kho</button></div></form></div></div>
 
-        <!-- EXPORT -->
-        <section id="tab-export" class="tab-panel hidden">
-          <div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-5 md:p-7">
-            <div class="flex items-start gap-3 mb-6"><div class="p-3 rounded-xl bg-blue-50 text-blue-600"><i data-lucide="package-minus"></i></div><div><h2 class="font-bold text-lg">Cấp phát thuốc theo FEFO</h2><p class="text-sm text-slate-500 mt-1">Hệ thống tự chọn lô có hạn sử dụng gần nhất trước. Không cấp phát lô đã hết hạn.</p></div></div>
-            <form id="export-form" class="grid md:grid-cols-2 gap-4">
-              <div class="md:col-span-2"><label class="field-label">Thuốc</label><select id="exp-code" class="input" required><option value="">-- Chọn thuốc --</option></select><div id="selected-stock" class="text-xs text-slate-400 mt-1"></div></div>
-              <div><label class="field-label">Số lượng cấp phát</label><input id="exp-qty" class="input" type="number" min="0.01" step="any" required></div>
-              <div><label class="field-label">Người nhận</label><input id="exp-receiver" class="input" required></div>
-              <div><label class="field-label">Bộ phận / Phòng ban</label><input id="exp-dept" class="input" required></div>
-              <div><label class="field-label">Người thực hiện</label><input id="exp-performer" class="input" value="Admin"></div>
-              <div class="md:col-span-2"><label class="field-label">Ghi chú</label><textarea id="exp-note" class="input min-h-24"></textarea></div>
-              <div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-xl border border-slate-200">Hủy</button><button id="export-submit" type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium">Xác nhận cấp phát</button></div>
-            </form>
-          </div>
-        </section>
-
-        <!-- HISTORY -->
-        <section id="tab-history" class="tab-panel hidden space-y-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center gap-3 md:justify-between"><div><h2 class="font-bold">Lịch sử cấp phát</h2><p class="text-xs text-slate-400">Tab <b>Xuất kho</b></p></div><input id="history-search" class="input md:w-80" placeholder="Tìm mã phiếu, thuốc, người nhận..."></div>
-          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1000px] w-full text-sm"><thead><tr class="thead"><th>Mã phiếu</th><th>Thời gian</th><th>Mã SP</th><th>Tên sản phẩm</th><th>Số lượng</th><th>Người nhận</th><th>Bộ phận</th><th>Người thực hiện</th><th>Ghi chú</th></tr></thead><tbody id="history-tbody"></tbody></table></div>
-        </section>
-
-        <!-- CATALOG -->
-        <section id="tab-catalog" class="tab-panel hidden space-y-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Danh mục hệ thống</h2><p class="text-sm text-slate-500 mt-1">Dữ liệu từ tab <b>Danh mục</b>.</p></div>
-          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[700px] w-full text-sm"><thead><tr class="thead"><th>Loại</th><th>Mã</th><th>Tên</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody id="catalog-tbody"></tbody></table></div>
-        </section>
-
-        <!-- AUDIT -->
-        <section id="tab-audit" class="tab-panel hidden space-y-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5"><h2 class="font-bold">Audit Log</h2><p class="text-sm text-slate-500 mt-1">Theo dõi các thao tác hệ thống.</p></div>
-          <div class="bg-white rounded-2xl border border-slate-200 table-wrap"><table class="min-w-[1100px] w-full text-sm"><thead><tr class="thead"><th>Thời gian</th><th>Hành động</th><th>Mã phiếu</th><th>Mã SP</th><th>Số lượng</th><th>Người thực hiện</th><th>Nội dung</th></tr></thead><tbody id="audit-tbody"></tbody></table></div>
-        </section>
-      </div>
-    </main>
-  </div>
-
-  <div id="toast" class="fixed right-4 bottom-4 hidden z-50 max-w-sm"></div>
-
+<div id="toast" class="hidden fixed right-4 bottom-4 z-[60] max-w-sm"></div>
 <script>
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec';
-const state = { products: [], stock: [], exports: [], dashboard: null, imports: [], catalog: [], audit: [], chart: null };
-
-const $ = id => document.getElementById(id);
-const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const money = v => Number(v || 0).toLocaleString('vi-VN') + ' đ';
-const num = v => Number(v || 0).toLocaleString('vi-VN');
-const dateText = v => {
-  if (!v) return '';
-  const d = new Date(v);
-  return isNaN(d) ? esc(v) : d.toLocaleString('vi-VN');
-};
-
-function toast(message, type='info') {
-  const el = $('toast');
-  const cls = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
-  el.className = `toast fixed right-4 bottom-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg text-white text-sm ${cls}`;
-  el.textContent = message;
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
-}
-
-async function apiGet(action) {
-  const res = await fetch(`${GAS_API_URL}?action=${encodeURIComponent(action)}&t=${Date.now()}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data && data.status === 'error') throw new Error(data.message || 'API lỗi');
-  return data;
-}
-
-async function apiPost(payload) {
-  const res = await fetch(GAS_API_URL, { method: 'POST', headers: {'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
-}
-
-function setLoading(tbodyId, cols, text='Đang tải dữ liệu...') {
-  $(tbodyId).innerHTML = `<tr><td colspan="${cols}" class="p-6 text-center text-slate-400">${esc(text)}</td></tr>`;
-}
-
-function emptyRow(cols, text='Chưa có dữ liệu') {
-  return `<tr><td colspan="${cols}" class="p-8 text-center text-slate-400">${esc(text)}</td></tr>`;
-}
-
-const tabTitles = { dashboard:'Dashboard tổng quan', products:'Danh mục sản phẩm', import:'Nhập kho', export:'Cấp phát thuốc', history:'Lịch sử cấp phát', catalog:'Danh mục hệ thống', audit:'Audit Log' };
-
-function switchTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-  const panel = $(`tab-${name}`);
-  if (panel) panel.classList.remove('hidden');
-  document.querySelectorAll(`[data-tab="${name}"]`).forEach(el => el.classList.add('active'));
-  $('page-title').textContent = tabTitles[name] || name;
-  if (name === 'products') renderProducts();
-  if (name === 'import') renderImports();
-  if (name === 'history') renderHistory();
-  if (name === 'catalog') renderCatalog();
-  if (name === 'audit') renderAudit();
-  if (name === 'export') populateExportSelect();
-}
-
-async function loadAll() {
-  $('api-status').textContent = 'Đang tải dữ liệu...';
-  $('api-status').className = 'text-sm font-medium text-amber-600 mt-1';
-  try {
-    const [dashboard, products, stock, exports] = await Promise.all([
-      apiGet('getDashboard'), apiGet('getProducts'), apiGet('getStock'), apiGet('getExportHistory')
-    ]);
-    state.dashboard = dashboard;
-    state.products = (Array.isArray(products) ? products : []).map(p => ({
-      code: p['Mã SP'] || '', name: p['Tên sản phẩm'] || '', activeIngredient: p['Hoạt chất'] || '', unit: p['Đơn vị'] || '',
-      group: p['Nhóm thuốc'] || '', cost: p['Giá nhập'] || 0, price: p['Giá xuất'] || 0, minimum: p['Tồn tối thiểu'] || 0, status: p['Trạng thái'] || 'ACTIVE', note: p['Ghi chú'] || ''
-    }));
-    state.stock = Array.isArray(stock) ? stock : [];
-    state.exports = Array.isArray(exports) ? exports : [];
-    state.imports = dashboard.imports || [];
-    state.catalog = dashboard.catalog || [];
-    state.audit = dashboard.audit || [];
-    renderDashboard();
-    renderProducts();
-    populateExportSelect();
-    $('api-status').textContent = 'Đã kết nối Google Sheets';
-    $('api-status').className = 'text-sm font-medium text-emerald-600 mt-1';
-  } catch (err) {
-    console.error(err);
-    $('api-status').textContent = 'Lỗi kết nối API';
-    $('api-status').className = 'text-sm font-medium text-rose-600 mt-1';
-    toast('Không tải được dữ liệu: ' + err.message, 'error');
-  }
-}
-
-function renderDashboard() {
-  const d = state.dashboard || {};
-  $('stat-products').textContent = num(d.products);
-  $('stat-stock').textContent = num(d.totalStock);
-  $('stat-value').textContent = money(d.stockValue);
-  $('stat-orders').textContent = num(d.todayOrders);
-  $('stat-qty').textContent = num(d.todayExportQty);
-  $('stat-low').textContent = num(d.lowStock);
-  $('stat-expired').textContent = num(d.expired);
-  $('stat-expiring').textContent = num(d.expiringSoon);
-  $('stat-warning').textContent = num((d.lowStock || 0) + (d.expired || 0));
-  $('stat-warning-detail').textContent = `${num(d.lowStock)} tồn thấp · ${num(d.expired)} hết hạn`;
-
-  const recent = Array.isArray(d.recentActivities) ? d.recentActivities : [];
-  $('recent-list').innerHTML = recent.length ? recent.map(r => `
-    <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
-      <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><i data-lucide="package-minus" class="w-4 h-4"></i></div>
-      <div class="min-w-0"><div class="text-sm font-medium truncate">${esc(r['Tên sản phẩm'] || r['Mã SP'])}</div><div class="text-xs text-slate-500">${num(r['Tổng số lượng'])} · ${esc(r['Người nhận'])} · ${esc(r['Bộ phận'])}</div><div class="text-[11px] text-slate-400 mt-1">${dateText(r['Thời gian'])}</div></div>
-    </div>`).join('') : '<div class="text-sm text-slate-400">Chưa có hoạt động.</div>';
-
-  if (window.lucide) lucide.createIcons();
-  drawStockChart();
-}
-
-function drawStockChart() {
-  const labels = state.stock.filter(x => Number(x.quantity) > 0).sort((a,b) => Number(b.quantity)-Number(a.quantity)).slice(0,10);
-  const ctx = $('stock-chart').getContext('2d');
-  if (state.chart) state.chart.destroy();
-  state.chart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: labels.map(x => x.name || x.code), datasets: [{ label:'Tồn kho', data: labels.map(x => Number(x.quantity)||0), borderWidth:1 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{beginAtZero:true} } }
-  });
-}
-
-function renderProducts() {
-  const q = ($('product-search')?.value || '').toLowerCase().trim();
-  const rows = state.products.filter(p => [p.code,p.name,p.activeIngredient,p.unit,p.group].join(' ').toLowerCase().includes(q));
-  $('products-tbody').innerHTML = rows.length ? rows.map(p => `
-    <tr class="border-b border-slate-100 hover:bg-slate-50">
-      <td class="td font-semibold">${esc(p.code)}</td><td class="td">${esc(p.name)}</td><td class="td">${esc(p.activeIngredient || '')}</td><td class="td">${esc(p.unit || '')}</td><td class="td">${esc(p.group || '')}</td><td class="td">${money(p.cost)}</td><td class="td">${num(p.minimum)}</td>
-      <td class="td"><span class="badge ${String(p.status).toUpperCase()==='INACTIVE'?'badge-red':'badge-green'}">${esc(p.status || 'ACTIVE')}</span></td>
-    </tr>`).join('') : emptyRow(8);
-}
-
-function populateExportSelect() {
-  const select = $('exp-code');
-  const current = select.value;
-  const products = state.products.filter(p => String(p.status || 'ACTIVE').toUpperCase() !== 'INACTIVE');
-  select.innerHTML = '<option value="">-- Chọn thuốc --</option>' + products.map(p => `<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');
-  if (products.some(p => p.code === current)) select.value = current;
-  updateSelectedStock();
-}
-
-function updateSelectedStock() {
-  const code = $('exp-code').value;
-  const s = state.stock.find(x => String(x.code) === String(code));
-  $('selected-stock').textContent = code ? `Tồn hiện tại: ${num(s?.quantity || 0)} ${s?.unit || ''}` : '';
-}
-
-function renderHistory() {
-  const q = ($('history-search')?.value || '').toLowerCase().trim();
-  const rows = state.exports.filter(r => [r['Mã phiếu cấp phát'],r['Mã SP'],r['Tên sản phẩm'],r['Người nhận'],r['Bộ phận'],r['Người thực hiện']].join(' ').toLowerCase().includes(q));
-  $('history-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
-    <tr class="border-b border-slate-100 hover:bg-slate-50"><td class="td font-semibold">${esc(r['Mã phiếu cấp phát'])}</td><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td font-semibold">${num(r['Tổng số lượng'])}</td><td class="td">${esc(r['Người nhận'])}</td><td class="td">${esc(r['Bộ phận'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(9);
-}
-
-function renderImports() {
-  const rows = state.imports || [];
-  $('imports-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `
-    <tr class="border-b border-slate-100"><td class="td">${esc(r['Mã phiếu nhập'])}</td><td class="td">${dateText(r['Ngày nhập'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td">${esc(r['Số lô'])}</td><td class="td">${num(r['Số lượng nhập'])}</td><td class="td font-semibold">${num(r['Số lượng còn'])}</td><td class="td">${dateText(r['Hạn sử dụng'])}</td><td class="td">${money(r['Đơn giá'])}</td><td class="td">${esc(r['Nhà cung cấp'])}</td></tr>`).join('') : emptyRow(10, 'Chưa có dữ liệu nhập kho hoặc API chưa trả tab Nhập kho.');
-}
-
-function renderCatalog() {
-  const rows = state.catalog || [];
-  $('catalog-tbody').innerHTML = rows.length ? rows.map(r => `<tr class="border-b border-slate-100"><td class="td">${esc(r['Loại'])}</td><td class="td">${esc(r['Mã'])}</td><td class="td">${esc(r['Tên'])}</td><td class="td">${esc(r['Trạng thái'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('') : emptyRow(5, 'Chưa có dữ liệu danh mục hoặc API chưa trả tab Danh mục.');
-}
-
-function renderAudit() {
-  const rows = state.audit || [];
-  $('audit-tbody').innerHTML = rows.length ? rows.slice().reverse().map(r => `<tr class="border-b border-slate-100"><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('') : emptyRow(7, 'Chưa có Audit Log hoặc API chưa trả tab AuditLog.');
-}
-
-$('export-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const btn = $('export-submit');
-  const payload = {
-    action: 'exportFEFO',
-    code: $('exp-code').value.trim(),
-    quantity: Number($('exp-qty').value),
-    receiver: $('exp-receiver').value.trim(),
-    department: $('exp-dept').value.trim(),
-    performer: $('exp-performer').value.trim() || 'Admin',
-    note: $('exp-note').value.trim()
-  };
-  if (!payload.code || !payload.quantity || payload.quantity <= 0 || !payload.receiver || !payload.department) return toast('Vui lòng nhập đủ thông tin cấp phát.', 'error');
-  btn.disabled = true; btn.textContent = 'Đang xử lý...';
-  try {
-    const result = await apiPost(payload);
-    if (result.status !== 'success') throw new Error(result.message || 'Cấp phát thất bại');
-    toast(`Cấp phát thành công. Mã phiếu: ${result.exportId}`, 'success');
-    e.target.reset(); $('exp-performer').value = 'Admin';
-    await loadAll();
-    switchTab('history');
-  } catch (err) { toast(err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'Xác nhận cấp phát'; }
-});
-
-$('exp-code').addEventListener('change', updateSelectedStock);
-$('product-search').addEventListener('input', renderProducts);
-$('history-search').addEventListener('input', renderHistory);
-$('refresh-btn').addEventListener('click', loadAll);
-
-document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
-
-// CSS class injection for compact reusable UI.
-const style = document.createElement('style');
-style.textContent = `
-.nav-btn{width:100%;display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-radius:.75rem;color:#475569;font-size:.875rem;font-weight:500}.nav-btn svg{width:18px;height:18px}.nav-btn:hover{background:#f8fafc}.nav-btn.active{background:#eff6ff;color:#2563eb}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem 1.1rem}.label{font-size:.75rem;color:#94a3b8;font-weight:600}.stat{font-size:1.7rem;font-weight:800;margin-top:.3rem}.hint{font-size:.7rem;color:#94a3b8;margin-top:.2rem}.input{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.65rem .8rem;font-size:.875rem;outline:none;background:#fff}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}.field-label{display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.4rem}.thead{background:#f8fafc;color:#64748b;font-size:.7rem;text-align:left}.thead th{padding:.8rem;white-space:nowrap}.td{padding:.75rem;white-space:nowrap}.badge{display:inline-flex;padding:.25rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700}.badge-green{background:#ecfdf5;color:#047857}.badge-red{background:#fef2f2;color:#b91c1c}`;
-document.head.appendChild(style);
-
-if (window.lucide) lucide.createIcons();
-loadAll();
-</script>
-</body>
-</html>
+const GAS_API_URL='https://script.google.com/macros/s/AKfycbwCe4xPZ2EBo7OafL8Q8obiUOza6_epXi-D7f7AbVZLlQTVBnBTbjpaEU6e9nezQrHr/exec';
+const state={products:[],stock:[],exports:[],dashboard:null,imports:[],catalog:[],audit:[],charts:{}};
+const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])), num=v=>Number(v||0).toLocaleString('vi-VN'), money=v=>num(v)+' đ';
+const dateText=v=>{if(!v)return '';const d=new Date(v);return isNaN(d)?esc(v):d.toLocaleString('vi-VN')};
+function toast(msg,type='info'){const e=$('toast'),c=type==='success'?'bg-emerald-600':type==='error'?'bg-rose-600':'bg-slate-800';e.className=`toast fixed right-4 bottom-4 z-[60] max-w-sm px-4 py-3 rounded-xl shadow-lg text-white text-sm ${c}`;e.textContent=msg;clearTimeout(window.__t);window.__t=setTimeout(()=>e.classList.add('hidden'),3500)}
+async function apiGet(action,params={}){const qs=new URLSearchParams({action,...params,t:Date.now()});const r=await fetch(`${GAS_API_URL}?${qs}`,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(d.status==='error')throw Error(d.message);return d}
+async function apiPost(payload){const r=await fetch(GAS_API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(d.status==='error')throw Error(d.message);return d}
+function openModal(id){$(id).classList.remove('hidden');$(id).classList.add('flex')}function closeModal(id){$(id).classList.add('hidden');$(id).classList.remove('flex')}
+const titles={dashboard:'Dashboard tổng quan',products:'Quản lý sản phẩm',import:'Nhập kho',export:'Cấp phát thuốc',reports:'Báo cáo cấp phát tháng',history:'Lịch sử cấp phát',catalog:'Danh mục hệ thống',audit:'Audit Log'};
+function switchTab(name){document.querySelectorAll('.tab-panel').forEach(x=>x.classList.add('hidden'));document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));$(`tab-${name}`).classList.remove('hidden');document.querySelectorAll(`[data-tab="${name}"]`).forEach(x=>x.classList.add('active'));$('page-title').textContent=titles[name]||name;if(name==='products')renderProducts();if(name==='import')renderImports();if(name==='export')populateExportSelect();if(name==='reports')prepareReportFilters();if(name==='history')renderHistory();if(name==='catalog')renderCatalog();if(name==='audit')renderAudit()}
+function normalizeProducts(rows){return rows.map(p=>({raw:p,code:p['Mã SP']||'',name:p['Tên sản phẩm']||'',activeIngredient:p['Hoạt chất']||'',unit:p['Đơn vị']||'',group:p['Nhóm thuốc']||'',cost:p['Giá nhập']||0,price:p['Giá xuất']||0,minimum:p['Tồn tối thiểu']||0,status:p['Trạng thái']||'ACTIVE',note:p['Ghi chú']||''}))}
+async function loadAll(){ $('api-status').textContent='Đang tải...';try{const [d,p,s,x]=await Promise.all([apiGet('getDashboard'),apiGet('getProducts'),apiGet('getStock'),apiGet('getExportHistory')]);state.dashboard=d;state.products=normalizeProducts(p);state.stock=s;state.exports=x;state.imports=d.imports||[];state.catalog=d.catalog||[];state.audit=d.audit||[];renderDashboard();renderProducts();populateExportSelect();populateProductForms();$('api-status').textContent='Đã kết nối Google Sheets';$('api-status').className='text-sm font-medium text-emerald-600 mt-1'}catch(e){$('api-status').textContent='Lỗi kết nối API';$('api-status').className='text-sm font-medium text-rose-600 mt-1';toast(e.message,'error')}}
+function renderDashboard(){const d=state.dashboard||{};$('stat-products').textContent=num(d.products);$('stat-stock').textContent=num(d.totalStock);$('stat-value').textContent=money(d.stockValue);$('stat-orders').textContent=num(d.todayOrders);$('stat-qty').textContent=num(d.todayExportQty);$('stat-low').textContent=num(d.lowStock);$('stat-expired').textContent=num(d.expired);$('stat-expiring').textContent=num(d.expiringSoon);$('stat-warning').textContent=num((d.lowStock||0)+(d.expired||0));const recent=d.recentActivities||[];$('recent-list').innerHTML=recent.length?recent.map(r=>`<div class="border-b border-slate-100 pb-3"><div class="font-medium text-sm">${esc(r['Tên sản phẩm']||r['Mã SP'])}</div><div class="text-xs text-slate-500">${num(r['Tổng số lượng'])} · ${esc(r['Người nhận'])} · ${esc(r['Bộ phận'])}</div><div class="text-[11px] text-slate-400">${dateText(r['Thời gian'])}</div></div>`).join(''):'<div class="text-sm text-slate-400">Chưa có hoạt động.</div>';drawStockChart();lucide.createIcons()}
+function drawStockChart(){const a=state.stock.filter(x=>Number(x.quantity)>0).sort((a,b)=>b.quantity-a.quantity).slice(0,10);if(state.charts.stock)state.charts.stock.destroy();state.charts.stock=new Chart($('stock-chart'),{type:'bar',data:{labels:a.map(x=>x.name||x.code),datasets:[{label:'Tồn kho',data:a.map(x=>Number(x.quantity)||0)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}})}
+function renderProducts(){const q=($('product-search')?.value||'').toLowerCase().trim(),rows=state.products.filter(p=>[p.code,p.name,p.activeIngredient,p.unit,p.group].join(' ').toLowerCase().includes(q));$('products-tbody').innerHTML=rows.length?rows.map(p=>`<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="td font-semibold">${esc(p.code)}</td><td class="td">${esc(p.name)}</td><td class="td">${esc(p.activeIngredient)}</td><td class="td">${esc(p.unit)}</td><td class="td">${esc(p.group)}</td><td class="td">${money(p.cost)}</td><td class="td">${num(p.minimum)}</td><td class="td"><span class="badge ${p.status==='INACTIVE'?'badge-red':'badge-green'}">${esc(p.status)}</span></td><td class="td"><button onclick="editProduct('${encodeURIComponent(p.code)}')" class="text-blue-600 mr-3">Sửa</button><button onclick="removeProduct('${encodeURIComponent(p.code)}')" class="text-rose-600">Xóa</button></td></tr>`).join(''):'<tr><td colspan="9" class="p-8 text-center text-slate-400">Chưa có sản phẩm</td></tr>'}
+function populateProductForms(){const units=[...new Set(state.catalog.filter(x=>x['Loại']==='Đơn vị').map(x=>[x['Mã'],x['Tên']]))],groups=[...new Set(state.catalog.filter(x=>x['Loại']==='Nhóm thuốc').map(x=>[x['Mã'],x['Tên']]))];$('p-unit').innerHTML='<option value="">-- chọn --</option>'+units.map(x=>`<option value="${esc(x[0])}">${esc(x[1])}</option>`).join('');$('p-group').innerHTML='<option value="">-- chọn --</option>'+groups.map(x=>`<option value="${esc(x[0])}">${esc(x[1])}</option>`).join('')}
+function resetProductForm(){ $('product-form').reset();$('p-old-code').value='';$('product-modal-title').textContent='Thêm sản phẩm';$('p-status').value='ACTIVE'}
+function editProduct(encoded){const p=state.products.find(x=>x.code===decodeURIComponent(encoded));if(!p)return;openModal('product-modal');$('product-modal-title').textContent='Sửa sản phẩm';$('p-old-code').value=p.code;$('p-code').value=p.code;$('p-name').value=p.name;$('p-active').value=p.activeIngredient;$('p-unit').value=p.unit;$('p-group').value=p.group;$('p-cost').value=p.cost;$('p-price').value=p.price;$('p-min').value=p.minimum;$('p-status').value=p.status;$('p-note').value=p.note}
+async function removeProduct(encoded){const code=decodeURIComponent(encoded);if(!confirm('Xóa sản phẩm '+code+'? Nếu còn tồn kho hệ thống sẽ từ chối.'))return;try{await apiPost({action:'deleteProduct',code,performer:'Admin'});toast('Đã xóa sản phẩm','success');await loadAll()}catch(e){toast(e.message,'error')}}
+function populateExportSelect(){const s=$('exp-code'),cur=s.value;s.innerHTML='<option value="">-- Chọn sản phẩm --</option>'+state.products.filter(p=>p.status!=='INACTIVE').map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');if(state.products.some(p=>p.code===cur))s.value=cur;updateSelectedStock()}
+function updateSelectedStock(){const code=$('exp-code').value,s=state.stock.find(x=>String(x.code)===code);$('selected-stock').textContent=code?`Tồn khả dụng: ${num(s?.quantity||0)} ${s?.unit||''}`:''}
+function renderImports(){const rows=state.imports||[];$('imports-tbody').innerHTML=rows.length?rows.slice().reverse().map(r=>`<tr class="border-b border-slate-100"><td class="td font-semibold">${esc(r['Mã phiếu nhập'])}</td><td class="td">${dateText(r['Ngày nhập'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td">${esc(r['Số lô'])}</td><td class="td">${num(r['Số lượng nhập'])}</td><td class="td font-semibold">${num(r['Số lượng còn'])}</td><td class="td">${dateText(r['Hạn sử dụng'])}</td><td class="td">${money(r['Đơn giá'])}</td><td class="td">${esc(r['Nhà cung cấp'])}</td><td class="td">${esc(r['Người nhập'])}</td></tr>`).join(''):'<tr><td colspan="11" class="p-8 text-center text-slate-400">Chưa có phiếu nhập.</td></tr>'}
+function renderHistory(){const q=($('history-search')?.value||'').toLowerCase().trim(),rows=state.exports.filter(r=>[r['Mã phiếu cấp phát'],r['Mã SP'],r['Tên sản phẩm'],r['Người nhận'],r['Bộ phận'],r['Người thực hiện']].join(' ').toLowerCase().includes(q));$('history-tbody').innerHTML=rows.slice().reverse().map(r=>`<tr class="border-b border-slate-100"><td class="td font-semibold">${esc(r['Mã phiếu cấp phát'])}</td><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${esc(r['Tên sản phẩm'])}</td><td class="td font-semibold">${num(r['Tổng số lượng'])}</td><td class="td">${esc(r['Người nhận'])}</td><td class="td">${esc(r['Bộ phận'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('')||'<tr><td colspan="9" class="p-8 text-center text-slate-400">Chưa có dữ liệu.</td></tr>'}
+function renderCatalog(){$('catalog-tbody').innerHTML=state.catalog.map(r=>`<tr class="border-b border-slate-100"><td class="td">${esc(r['Loại'])}</td><td class="td">${esc(r['Mã'])}</td><td class="td">${esc(r['Tên'])}</td><td class="td">${esc(r['Trạng thái'])}</td><td class="td">${esc(r['Ghi chú'])}</td></tr>`).join('')}
+function renderAudit(){$('audit-tbody').innerHTML=state.audit.slice().reverse().map(r=>`<tr class="border-b border-slate-100"><td class="td">${dateText(r['Thời gian'])}</td><td class="td">${esc(r['Hành động'])}</td><td class="td">${esc(r['Mã phiếu'])}</td><td class="td">${esc(r['Mã SP'])}</td><td class="td">${num(r['Số lượng'])}</td><td class="td">${esc(r['Người thực hiện'])}</td><td class="td">${esc(r['Nội dung'])}</td></tr>`).join('')||'<tr><td colspan="7" class="p-8 text-center text-slate-400">Chưa có log.</td></tr>'}
+function prepareReportFilters(){const d=[...new Set(state.exports.map(x=>String(x['Bộ phận']||'').trim()).filter(Boolean))].sort(),curD=$('report-dept').value,curP=$('report-product').value;$('report-dept').innerHTML='<option value="">Tất cả bộ phận</option>'+d.map(x=>`<option>${esc(x)}</option>`).join('');$('report-dept').value=curD;$('report-product').innerHTML='<option value="">Tất cả sản phẩm</option>'+state.products.map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');$('report-product').value=curP;if(!$('report-month').value){const d0=new Date();$('report-month').value=d0.toISOString().slice(0,7)}}
+async function runReport(){try{const r=await apiGet('getReport',{month:$('report-month').value,department:$('report-dept').value,code:$('report-product').value});$('rep-orders').textContent=num(r.orders);$('rep-qty').textContent=num(r.quantity);$('rep-depts').textContent=num(r.departments.length);$('rep-products').textContent=num(r.products.length);if(state.charts.dept)state.charts.dept.destroy();if(state.charts.product)state.charts.product.destroy();state.charts.dept=new Chart($('dept-chart'),{type:'bar',data:{labels:r.departments.map(x=>x.department),datasets:[{label:'Số lượng',data:r.departments.map(x=>x.quantity)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});state.charts.product=new Chart($('product-chart'),{type:'bar',data:{labels:r.products.slice(0,15).map(x=>x.name),datasets:[{label:'Số lượng',data:r.products.slice(0,15).map(x=>x.quantity)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});$('report-tbody').innerHTML=r.rows.map(x=>`<tr class="border-b border-slate-100"><td class="td">${esc(x['Mã phiếu cấp phát'])}</td><td class="td">${dateText(x['Thời gian'])}</td><td class="td">${esc(x['Mã SP'])}</td><td class="td">${esc(x['Tên sản phẩm'])}</td><td class="td font-semibold">${num(x['Tổng số lượng'])}</td><td class="td">${esc(x['Người nhận'])}</td><td class="td">${esc(x['Bộ phận'])}</td><td class="td">${esc(x['Người thực hiện'])}</td></tr>`).join('')||'<tr><td colspan="8" class="p-8 text-center text-slate-400">Không có dữ liệu.</td></tr>'}catch(e){toast(e.message,'error')}}
+$('add-product').onclick=()=>{resetProductForm();openModal('product-modal')};
+$('product-form').onsubmit=async e=>{e.preventDefault();const payload={action:$('p-old-code').value?'updateProduct':'createProduct',oldCode:$('p-old-code').value,code:$('p-code').value,name:$('p-name').value,activeIngredient:$('p-active').value,unit:$('p-unit').value,group:$('p-group').value,cost:Number($('p-cost').value||0),price:Number($('p-price').value||0),minimum:Number($('p-min').value||0),status:$('p-status').value,note:$('p-note').value,performer:'Admin'};try{await apiPost(payload);closeModal('product-modal');toast('Đã lưu sản phẩm','success');await loadAll()}catch(x){toast(x.message,'error')}};
+$('new-import').onclick=()=>{ $('import-form').reset();$('i-performer').value='Admin';$('i-date').value=new Date().toISOString().slice(0,10);populateImportSelect();openModal('import-modal')};
+function populateImportSelect(){$('i-code').innerHTML='<option value="">-- Chọn sản phẩm --</option>'+state.products.filter(p=>p.status!=='INACTIVE').map(p=>`<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('')}
+$('import-form').onsubmit=async e=>{e.preventDefault();const p={action:'createImport',code:$('i-code').value,lot:$('i-lot').value,importDate:$('i-date').value,expiry:$('i-expiry').value,quantity:Number($('i-qty').value),price:Number($('i-price').value),supplier:$('i-supplier').value,performer:$('i-performer').value||'Admin',note:$('i-note').value};try{await apiPost(p);closeModal('import-modal');toast('Nhập kho thành công','success');await loadAll();switchTab('import')}catch(x){toast(x.message,'error')}};
+$('export-form').onsubmit=async e=>{e.preventDefault();const b=$('export-submit');b.disabled=true;try{const r=await apiPost({action:'exportFEFO',code:$('exp-code').value,quantity:Number($('exp-qty').value),receiver:$('exp-receiver').value,department:$('exp-dept').value,performer:$('exp-performer').value||'Admin',note:$('exp-note').value});toast('Cấp phát thành công: '+r.exportId,'success');e.target.reset();$('exp-performer').value='Admin';await loadAll();switchTab('history')}catch(x){toast(x.message,'error')}finally{b.disabled=false}};
+$('exp-code').onchange=updateSelectedStock;$('product-search').oninput=renderProducts;$('history-search').oninput=renderHistory;$('report-run').onclick=runReport;$('refresh-btn').onclick=loadAll;document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+lucide.createIcons();loadAll();
+</script></body></html>

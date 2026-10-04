@@ -1,871 +1,227 @@
 /*******************************************************
  * HỆ THỐNG QUẢN LÝ CẤP PHÁT THUỐC
- * Google Apps Script - Code.gs
- *
- * Mục đích:
- * 1. Tự tạo/chuẩn hóa các tab Google Sheets.
- * 2. Quản lý danh mục thuốc.
- * 3. Quản lý nhập kho theo từng lô.
- * 4. Cấp phát theo FEFO (hạn dùng gần nhất trước).
- * 5. Ghi lịch sử cấp phát + chi tiết từng lô.
- * 6. Dashboard lấy dữ liệu thật từ Google Sheets.
- *
- * LƯU Ý:
- * - Hàm setupThuocSheets() KHÔNG xóa dữ liệu cũ.
- * - Hàm resetThuocSheets() XÓA DỮ LIỆU của các tab hệ thống.
- *   Chỉ dùng khi muốn làm lại từ đầu.
+ * Google Apps Script - quy trình khép kín:
+ * Sản phẩm -> Nhập kho -> Tồn kho -> Cấp phát FEFO -> Báo cáo
  *******************************************************/
-
 const SPREADSHEET_ID = '1ZT7EeWVtJ8WkUWy7voM8FWxqBfMekvoeCo53Q3p9bJg';
 
 const SHEET_CONFIG = {
-  'Sản phẩm': [
-    'Mã SP',
-    'Tên sản phẩm',
-    'Hoạt chất',
-    'Đơn vị',
-    'Nhóm thuốc',
-    'Giá nhập',
-    'Giá xuất',
-    'Tồn tối thiểu',
-    'Trạng thái',
-    'Ghi chú'
-  ],
-
-  'Nhập kho': [
-    'Mã phiếu nhập',
-    'Ngày nhập',
-    'Mã SP',
-    'Tên sản phẩm',
-    'Số lô',
-    'Số lượng nhập',
-    'Số lượng còn',
-    'Hạn sử dụng',
-    'Đơn giá',
-    'Nhà cung cấp',
-    'Người nhập',
-    'Ghi chú'
-  ],
-
-  'Xuất kho': [
-    'Mã phiếu cấp phát',
-    'Thời gian',
-    'Mã SP',
-    'Tên sản phẩm',
-    'Tổng số lượng',
-    'Người nhận',
-    'Bộ phận',
-    'Người thực hiện',
-    'Ghi chú'
-  ],
-
-  'Chi tiết cấp phát': [
-    'Mã phiếu cấp phát',
-    'Mã SP',
-    'Tên sản phẩm',
-    'Số lô',
-    'Hạn sử dụng',
-    'Số lượng xuất'
-  ],
-
-  'Danh mục': [
-    'Loại',
-    'Mã',
-    'Tên',
-    'Trạng thái',
-    'Ghi chú'
-  ],
-
-  'AuditLog': [
-    'Thời gian',
-    'Hành động',
-    'Mã phiếu',
-    'Mã SP',
-    'Số lượng',
-    'Người thực hiện',
-    'Nội dung',
-    'IP/UserAgent'
-  ],
-
-  'Config': [
-    'Key',
-    'Value',
-    'Mô tả'
-  ]
+  'Sản phẩm': ['Mã SP','Tên sản phẩm','Hoạt chất','Đơn vị','Nhóm thuốc','Giá nhập','Giá xuất','Tồn tối thiểu','Trạng thái','Ghi chú'],
+  'Nhập kho': ['Mã phiếu nhập','Ngày nhập','Mã SP','Tên sản phẩm','Số lô','Số lượng nhập','Số lượng còn','Hạn sử dụng','Đơn giá','Nhà cung cấp','Người nhập','Ghi chú'],
+  'Xuất kho': ['Mã phiếu cấp phát','Thời gian','Mã SP','Tên sản phẩm','Tổng số lượng','Người nhận','Bộ phận','Người thực hiện','Ghi chú'],
+  'Chi tiết cấp phát': ['Mã phiếu cấp phát','Mã SP','Tên sản phẩm','Số lô','Hạn sử dụng','Số lượng xuất','Đơn giá'],
+  'Danh mục': ['Loại','Mã','Tên','Trạng thái','Ghi chú'],
+  'AuditLog': ['Thời gian','Hành động','Mã phiếu','Mã SP','Số lượng','Người thực hiện','Nội dung','IP/UserAgent'],
+  'Config': ['Key','Value','Mô tả']
 };
 
-function getSpreadsheet_() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
-}
+function getSpreadsheet_(){ return SpreadsheetApp.openById(SPREADSHEET_ID); }
 
-/**
- * Chạy hàm này 1 lần đầu tiên.
- * Không xóa dữ liệu hiện có.
- */
-function setupThuocSheets() {
-  const ss = getSpreadsheet_();
-  const result = [];
-
-  Object.keys(SHEET_CONFIG).forEach(name => {
-    const headers = SHEET_CONFIG[name];
-    let sh = ss.getSheetByName(name);
-
-    if (!sh) {
-      sh = ss.insertSheet(name);
-      result.push('Tạo tab: ' + name);
-    } else {
-      result.push('Đã có tab: ' + name);
-    }
-
-    ensureHeaders_(sh, headers);
-    formatSheet_(sh, headers);
+function setupThuocSheets(){
+  const ss=getSpreadsheet_(), result=[];
+  Object.keys(SHEET_CONFIG).forEach(name=>{
+    let sh=ss.getSheetByName(name);
+    if(!sh){ sh=ss.insertSheet(name); result.push('Tạo tab: '+name); }
+    else result.push('Đã có tab: '+name);
+    ensureHeaders_(sh,SHEET_CONFIG[name]); formatSheet_(sh,SHEET_CONFIG[name]);
   });
-
-  seedDanhMuc_(ss);
-  seedConfig_(ss);
-
-  SpreadsheetApp.flush();
-
-  Logger.log(result.join('\n'));
-  return result;
+  seedDanhMuc_(ss); seedConfig_(ss); SpreadsheetApp.flush(); return result;
 }
 
-/**
- * XÓA DỮ LIỆU và tạo lại cấu trúc các tab hệ thống.
- * KHÔNG chạy hàm này nếu còn dữ liệu cần giữ.
- */
-function resetThuocSheets() {
-  const ss = getSpreadsheet_();
-
-  Object.keys(SHEET_CONFIG).forEach(name => {
-    let sh = ss.getSheetByName(name);
-
-    if (!sh) {
-      sh = ss.insertSheet(name);
-    }
-
-    sh.clear();
-    sh.clearFormats();
-    ensureHeaders_(sh, SHEET_CONFIG[name]);
-    formatSheet_(sh, SHEET_CONFIG[name]);
+function resetThuocSheets(){
+  const ss=getSpreadsheet_();
+  Object.keys(SHEET_CONFIG).forEach(name=>{
+    let sh=ss.getSheetByName(name)||ss.insertSheet(name);
+    sh.clear(); sh.clearFormats(); ensureHeaders_(sh,SHEET_CONFIG[name]); formatSheet_(sh,SHEET_CONFIG[name]);
   });
-
-  seedDanhMuc_(ss);
-  seedConfig_(ss);
-
-  SpreadsheetApp.flush();
-  Logger.log('Đã reset và setup lại toàn bộ tab quản lý thuốc.');
+  seedDanhMuc_(ss); seedConfig_(ss); SpreadsheetApp.flush();
 }
 
-/**
- * Tạo header nếu tab chưa có.
- * Nếu tab đang có dữ liệu, không tự xóa dữ liệu.
- */
-function ensureHeaders_(sh, headers) {
-  if (sh.getMaxColumns() < headers.length) {
-    sh.insertColumnsAfter(
-      sh.getMaxColumns(),
-      headers.length - sh.getMaxColumns()
-    );
-  }
-
-  const firstRow = sh.getRange(1, 1, 1, headers.length).getValues()[0];
-  const isEmpty = firstRow.every(v => String(v).trim() === '');
-
-  if (isEmpty) {
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
+function ensureHeaders_(sh,headers){
+  if(sh.getMaxColumns()<headers.length) sh.insertColumnsAfter(sh.getMaxColumns(),headers.length-sh.getMaxColumns());
+  const row=sh.getRange(1,1,1,headers.length).getValues()[0];
+  if(row.every(v=>String(v).trim()==='')) sh.getRange(1,1,1,headers.length).setValues([headers]);
 }
-
-/**
- * Định dạng chung.
- */
-function formatSheet_(sh, headers) {
-  const lastCol = headers.length;
-
+function formatSheet_(sh,headers){
   sh.setFrozenRows(1);
-
-  const header = sh.getRange(1, 1, 1, lastCol);
-  header
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-
-  header.setWrap(true);
-
-  if (sh.getMaxRows() > 1) {
-    sh.getRange(2, 1, sh.getMaxRows() - 1, lastCol)
-      .setVerticalAlignment('middle');
-  }
-
-  // Tự điều chỉnh độ rộng nhưng giới hạn để sheet không quá rộng.
-  for (let c = 1; c <= lastCol; c++) {
-    sh.autoResizeColumn(c);
-    const width = sh.getColumnWidth(c);
-    if (width < 90) sh.setColumnWidth(c, 90);
-    if (width > 260) sh.setColumnWidth(c, 260);
-  }
-
-  // Định dạng ngày.
-  const dateHeaders = [
-    'Ngày nhập',
-    'Hạn sử dụng',
-    'Thời gian'
-  ];
-
-  headers.forEach((h, i) => {
-    if (dateHeaders.indexOf(h) >= 0 && sh.getMaxRows() > 1) {
-      sh.getRange(2, i + 1, sh.getMaxRows() - 1, 1)
-        .setNumberFormat('dd/MM/yyyy HH:mm');
-    }
-  });
-
-  // Định dạng số.
-  const numberHeaders = [
-    'Số lượng nhập',
-    'Số lượng còn',
-    'Số lượng xuất',
-    'Tổng số lượng',
-    'Giá nhập',
-    'Giá xuất',
-    'Đơn giá',
-    'Tồn tối thiểu'
-  ];
-
-  headers.forEach((h, i) => {
-    if (numberHeaders.indexOf(h) >= 0 && sh.getMaxRows() > 1) {
-      sh.getRange(2, i + 1, sh.getMaxRows() - 1, 1)
-        .setNumberFormat('#,##0.##');
-    }
+  sh.getRange(1,1,1,headers.length).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+  const dateHeaders=['Ngày nhập','Hạn sử dụng','Thời gian'];
+  const numberHeaders=['Số lượng nhập','Số lượng còn','Số lượng xuất','Tổng số lượng','Giá nhập','Giá xuất','Đơn giá','Tồn tối thiểu'];
+  headers.forEach((h,i)=>{
+    if(sh.getMaxRows()>1 && dateHeaders.indexOf(h)>=0) sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('dd/MM/yyyy HH:mm');
+    if(sh.getMaxRows()>1 && numberHeaders.indexOf(h)>=0) sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('#,##0.##');
+    sh.autoResizeColumn(i+1); const w=sh.getColumnWidth(i+1); if(w<90)sh.setColumnWidth(i+1,90); if(w>260)sh.setColumnWidth(i+1,260);
   });
 }
+function seedDanhMuc_(ss){
+  const sh=ss.getSheetByName('Danh mục'); if(!sh||sh.getLastRow()>1)return;
+  sh.getRange(2,1,9,5).setValues([
+    ['Trạng thái thuốc','ACTIVE','Đang sử dụng','ACTIVE',''],
+    ['Trạng thái thuốc','INACTIVE','Ngừng sử dụng','ACTIVE',''],
+    ['Nhóm thuốc','THUOC','Thuốc','ACTIVE',''],['Nhóm thuốc','VTYT','Vật tư y tế','ACTIVE',''],
+    ['Đơn vị','VIEN','Viên','ACTIVE',''],['Đơn vị','GOI','Gói','ACTIVE',''],['Đơn vị','CHAI','Chai','ACTIVE',''],['Đơn vị','ONG','Ống','ACTIVE',''],['Đơn vị','HOP','Hộp','ACTIVE','']
+  ]);
+}
+function seedConfig_(ss){
+  const sh=ss.getSheetByName('Config'); if(!sh||sh.getLastRow()>1)return;
+  sh.getRange(2,1,4,3).setValues([
+    ['APP_NAME','Quản lý cấp phát thuốc','Tên hệ thống'],['STOCK_METHOD','FEFO','Xuất lô có hạn sử dụng gần nhất trước'],['LOW_STOCK_DEFAULT','10','Ngưỡng tồn tối thiểu mặc định'],['TIMEZONE',Session.getScriptTimeZone(),'Múi giờ Apps Script']
+  ]);
+}
+function ensureSystemSheets_(ss){ Object.keys(SHEET_CONFIG).forEach(n=>{let sh=ss.getSheetByName(n)||ss.insertSheet(n);ensureHeaders_(sh,SHEET_CONFIG[n]);}); }
 
-/**
- * Dữ liệu danh mục mặc định.
- */
-function seedDanhMuc_(ss) {
-  const sh = ss.getSheetByName('Danh mục');
-  if (!sh) return;
-
-  if (sh.getLastRow() > 1) return;
-
-  const rows = [
-    ['Trạng thái thuốc', 'ACTIVE', 'Đang sử dụng', 'ACTIVE', ''],
-    ['Trạng thái thuốc', 'INACTIVE', 'Ngừng sử dụng', 'ACTIVE', ''],
-    ['Nhóm thuốc', 'THUOC', 'Thuốc', 'ACTIVE', ''],
-    ['Nhóm thuốc', 'VTYT', 'Vật tư y tế', 'ACTIVE', ''],
-    ['Đơn vị', 'VIEN', 'Viên', 'ACTIVE', ''],
-    ['Đơn vị', 'GOI', 'Gói', 'ACTIVE', ''],
-    ['Đơn vị', 'CHAI', 'Chai', 'ACTIVE', ''],
-    ['Đơn vị', 'ONG', 'Ống', 'ACTIVE', ''],
-    ['Đơn vị', 'HOP', 'Hộp', 'ACTIVE', '']
-  ];
-
-  sh.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+function doGet(e){
+  try{
+    const ss=getSpreadsheet_(); ensureSystemSheets_(ss);
+    const a=e&&e.parameter?e.parameter.action:'';
+    if(a==='setup') return json_({status:'success',message:'Đã setup các tab.',sheets:Object.keys(SHEET_CONFIG)});
+    if(a==='getProducts') return json_(getSheetData_(ss,'Sản phẩm'));
+    if(a==='getDashboard') return json_(getDashboard_(ss));
+    if(a==='getStock') return json_(getStock_(ss));
+    if(a==='getExportHistory') return json_(getSheetData_(ss,'Xuất kho'));
+    if(a==='getReport') return json_(getReport_(ss,e.parameter||{}));
+    return json_({status:'success',message:'API đang hoạt động.',actions:['getProducts','getDashboard','getStock','getExportHistory','getReport']});
+  }catch(err){ return json_({status:'error',message:err.message}); }
 }
 
-/**
- * Cấu hình mặc định.
- */
-function seedConfig_(ss) {
-  const sh = ss.getSheetByName('Config');
-  if (!sh) return;
-
-  if (sh.getLastRow() > 1) return;
-
-  const rows = [
-    ['APP_NAME', 'Quản lý cấp phát thuốc', 'Tên hệ thống'],
-    ['STOCK_METHOD', 'FEFO', 'Xuất lô có hạn sử dụng gần nhất trước'],
-    ['LOW_STOCK_DEFAULT', '10', 'Ngưỡng tồn tối thiểu mặc định'],
-    ['TIMEZONE', Session.getScriptTimeZone(), 'Múi giờ Apps Script']
-  ];
-
-  sh.getRange(2, 1, rows.length, 3).setValues(rows);
+function doPost(e){
+  try{
+    const payload=JSON.parse((e.postData&&e.postData.contents)||'{}'), a=payload.action, ss=getSpreadsheet_(); ensureSystemSheets_(ss);
+    if(a==='setupSheets'){setupThuocSheets();return json_({status:'success',message:'Đã setup các tab.'});}
+    if(a==='createProduct') return json_(createProduct_(ss,payload));
+    if(a==='updateProduct') return json_(updateProduct_(ss,payload));
+    if(a==='deleteProduct') return json_(deleteProduct_(ss,payload));
+    if(a==='createImport') return json_(createImport_(ss,payload));
+    if(a==='exportFIFO'||a==='exportFEFO') return json_(exportMedicine_(ss,payload));
+    return json_({status:'error',message:'Action không được hỗ trợ.'});
+  }catch(err){return json_({status:'error',message:err.message});}
 }
 
-/**
- * Endpoint GET.
- */
-function doGet(e) {
-  try {
-    const action = e && e.parameter ? e.parameter.action : '';
-    const ss = getSpreadsheet_();
-
-    // Tự đảm bảo các tab tồn tại.
-    ensureSystemSheets_(ss);
-
-    if (action === 'setup') {
-      return createJsonResponse({
-        status: 'success',
-        message: 'Các tab Google Sheets đã được setup.',
-        sheets: Object.keys(SHEET_CONFIG)
-      });
-    }
-
-    if (action === 'getProducts') {
-      return createJsonResponse(getSheetData_(ss, 'Sản phẩm'));
-    }
-
-    if (action === 'getDashboard') {
-      return createJsonResponse(getDashboard_(ss));
-    }
-
-    if (action === 'getStock') {
-      return createJsonResponse(getStock_(ss));
-    }
-
-    if (action === 'getExportHistory') {
-      return createJsonResponse(getSheetData_(ss, 'Xuất kho'));
-    }
-
-    return createJsonResponse({
-      status: 'success',
-      message: 'API quản lý cấp phát thuốc đang hoạt động.',
-      actions: [
-        'getProducts',
-        'getDashboard',
-        'getStock',
-        'getExportHistory'
-      ]
-    });
-
-  } catch (err) {
-    return createJsonResponse({
-      status: 'error',
-      message: err.message
-    });
-  }
+function validateProduct_(p){
+  const code=String(p.code||'').trim(), name=String(p.name||'').trim(), unit=String(p.unit||'').trim(), group=String(p.group||'').trim();
+  const cost=Number(p.cost||0), price=Number(p.price||0), minimum=Number(p.minimum||0);
+  if(!code||!name) throw new Error('Mã SP và tên sản phẩm là bắt buộc.');
+  if(!unit) throw new Error('Vui lòng chọn đơn vị.');
+  if(!group) throw new Error('Vui lòng chọn nhóm thuốc.');
+  if(!Number.isFinite(cost)||cost<0||!Number.isFinite(price)||price<0||!Number.isFinite(minimum)||minimum<0) throw new Error('Giá và tồn tối thiểu không hợp lệ.');
+  return {code,name,activeIngredient:String(p.activeIngredient||'').trim(),unit,group,cost,price,minimum,status:String(p.status||'ACTIVE').toUpperCase()==='INACTIVE'?'INACTIVE':'ACTIVE',note:String(p.note||'').trim()};
+}
+function createProduct_(ss,p){
+  const product=validateProduct_(p), sh=ss.getSheetByName('Sản phẩm'), rows=getSheetData_(ss,'Sản phẩm');
+  if(rows.some(r=>String(r['Mã SP']).trim()===product.code)) throw new Error('Mã SP đã tồn tại.');
+  sh.appendRow([product.code,product.name,product.activeIngredient,product.unit,product.group,product.cost,product.price,product.minimum,product.status,product.note]);
+  audit_(ss,'TẠO SẢN PHẨM','',product.code,'',p.performer||'Admin','Tạo sản phẩm '+product.name);
+  return {status:'success',message:'Đã tạo sản phẩm.',product:product};
+}
+function updateProduct_(ss,p){
+  const product=validateProduct_(p), sh=ss.getSheetByName('Sản phẩm'), values=sh.getDataRange().getValues(), oldCode=String(p.oldCode||product.code).trim();
+  let rowIndex=-1;
+  for(let i=1;i<values.length;i++) if(String(values[i][0]).trim()===oldCode){rowIndex=i+1;break;}
+  if(rowIndex<0) throw new Error('Không tìm thấy sản phẩm.');
+  if(oldCode!==product.code && values.slice(1).some(r=>String(r[0]).trim()===product.code)) throw new Error('Mã SP mới đã tồn tại.');
+  sh.getRange(rowIndex,1,1,10).setValues([[product.code,product.name,product.activeIngredient,product.unit,product.group,product.cost,product.price,product.minimum,product.status,product.note]]);
+  audit_(ss,'CẬP NHẬT SẢN PHẨM','',product.code,'',p.performer||'Admin','Cập nhật sản phẩm');
+  return {status:'success',message:'Đã cập nhật sản phẩm.'};
+}
+function deleteProduct_(ss,p){
+  const code=String(p.code||'').trim(); if(!code)throw new Error('Thiếu mã SP.');
+  const sh=ss.getSheetByName('Sản phẩm'), values=sh.getDataRange().getValues(); let idx=-1;
+  for(let i=1;i<values.length;i++) if(String(values[i][0]).trim()===code){idx=i+1;break;}
+  if(idx<0)throw new Error('Không tìm thấy sản phẩm.');
+  const imports=getSheetData_(ss,'Nhập kho');
+  if(imports.some(r=>String(r['Mã SP']).trim()===code && Number(r['Số lượng còn'])>0)) throw new Error('Không thể xóa: sản phẩm vẫn còn tồn kho. Hãy chuyển trạng thái INACTIVE.');
+  sh.deleteRow(idx); audit_(ss,'XÓA SẢN PHẨM','',code,'',p.performer||'Admin','Xóa sản phẩm');
+  return {status:'success',message:'Đã xóa sản phẩm.'};
 }
 
-/**
- * Endpoint POST.
- */
-function doPost(e) {
-  try {
-    const payload = JSON.parse(e.postData.contents || '{}');
-    const action = payload.action;
-    const ss = getSpreadsheet_();
-
-    ensureSystemSheets_(ss);
-
-    if (action === 'setupSheets') {
-      setupThuocSheets();
-      return createJsonResponse({
-        status: 'success',
-        message: 'Đã setup các tab Google Sheets.'
-      });
-    }
-
-    if (action === 'exportFIFO' || action === 'exportFEFO') {
-      return createJsonResponse(exportMedicine_(ss, payload));
-    }
-
-    return createJsonResponse({
-      status: 'error',
-      message: 'Action không được hỗ trợ.'
-    });
-
-  } catch (err) {
-    return createJsonResponse({
-      status: 'error',
-      message: err.message
-    });
-  }
+function parseDate_(v){
+  if(v instanceof Date && !isNaN(v))return v;
+  if(v===null||v===undefined||v==='')return null;
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T](\d{1,2}):(\d{2}))?$/);
+  if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0));
+  const d=new Date(s); return isNaN(d)?null:d;
 }
-
-/**
- * Cấp phát thuốc theo FEFO.
- *
- * LockService giúp tránh 2 người cùng cấp phát
- * làm sai tồn kho khi thao tác đồng thời.
- */
-function exportMedicine_(ss, payload) {
-  const lock = LockService.getScriptLock();
-
-  try {
-    lock.waitLock(30000);
-
-    const code = String(payload.code || '').trim();
-    const quantity = Number(payload.quantity);
-    const receiver = String(payload.receiver || '').trim();
-    const department = String(payload.department || '').trim();
-    const performer = String(payload.performer || 'Admin').trim();
-    const note = String(payload.note || '').trim();
-
-    if (!code) {
-      return {
-        status: 'error',
-        message: 'Chưa nhập mã thuốc.'
-      };
-    }
-
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      return {
-        status: 'error',
-        message: 'Số lượng cấp phát phải lớn hơn 0.'
-      };
-    }
-
-    if (!receiver) {
-      return {
-        status: 'error',
-        message: 'Chưa nhập người nhận.'
-      };
-    }
-
-    if (!department) {
-      return {
-        status: 'error',
-        message: 'Chưa nhập bộ phận.'
-      };
-    }
-
-    const productSheet = ss.getSheetByName('Sản phẩm');
-    const importSheet = ss.getSheetByName('Nhập kho');
-    const exportSheet = ss.getSheetByName('Xuất kho');
-    const detailSheet = ss.getSheetByName('Chi tiết cấp phát');
-    const auditSheet = ss.getSheetByName('AuditLog');
-
-    const products = getSheetData_(ss, 'Sản phẩm');
-    const product = products.find(p =>
-      String(p['Mã SP']).trim() === code
-    );
-
-    if (!product) {
-      return {
-        status: 'error',
-        message: 'Không tìm thấy mã thuốc: ' + code
-      };
-    }
-
-    if (String(product['Trạng thái'] || 'ACTIVE').toUpperCase() === 'INACTIVE') {
-      return {
-        status: 'error',
-        message: 'Thuốc đang ở trạng thái ngừng sử dụng.'
-      };
-    }
-
-    const values = importSheet.getDataRange().getValues();
-    const batches = [];
-
-    // Cấu trúc Nhập kho:
-    // A Mã phiếu
-    // B Ngày nhập
-    // C Mã SP
-    // D Tên SP
-    // E Số lô
-    // F SL nhập
-    // G SL còn
-    // H HSD
-    // I Đơn giá
-    // J NCC
-    // K Người nhập
-    // L Ghi chú
-
-    for (let i = 1; i < values.length; i++) {
-      const row = values[i];
-      const rowCode = String(row[2] || '').trim();
-      const remaining = Number(row[6]) || 0;
-
-      if (rowCode !== code || remaining <= 0) continue;
-
-      const expiry = row[7] instanceof Date
-        ? row[7]
-        : new Date(row[7]);
-
-      // Không cấp phát lô đã hết hạn.
-      if (isValidDate_(expiry) && expiry.getTime() < Date.now()) {
-        continue;
-      }
-
-      batches.push({
-        rowIndex: i + 1,
-        importDate: row[1] instanceof Date ? row[1] : new Date(row[1]),
-        lot: String(row[4] || ''),
-        remaining: remaining,
-        expiry: expiry,
-        unitPrice: Number(row[8]) || 0
-      });
-    }
-
-    if (!batches.length) {
-      return {
-        status: 'error',
-        message: 'Không còn lô thuốc hợp lệ để cấp phát.'
-      };
-    }
-
-    // FEFO: HSD gần nhất trước.
-    // Nếu cùng HSD thì ngày nhập cũ hơn trước.
-    batches.sort((a, b) => {
-      const aExpiry = isValidDate_(a.expiry)
-        ? a.expiry.getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      const bExpiry = isValidDate_(b.expiry)
-        ? b.expiry.getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      if (aExpiry !== bExpiry) return aExpiry - bExpiry;
-
-      const aImport = isValidDate_(a.importDate)
-        ? a.importDate.getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      const bImport = isValidDate_(b.importDate)
-        ? b.importDate.getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      return aImport - bImport;
-    });
-
-    const totalAvailable = batches.reduce(
-      (sum, b) => sum + b.remaining,
-      0
-    );
-
-    if (totalAvailable < quantity) {
-      return {
-        status: 'error',
-        message:
-          'Không đủ tồn kho. Tồn khả dụng: ' +
-          totalAvailable +
-          ', yêu cầu: ' +
-          quantity
-      };
-    }
-
-    let remainingToExport = quantity;
-    const allocations = [];
-
-    for (const batch of batches) {
-      if (remainingToExport <= 0) break;
-
-      const exportQty = Math.min(
-        remainingToExport,
-        batch.remaining
-      );
-
-      const newRemaining = batch.remaining - exportQty;
-
-      // Cập nhật cột G - Số lượng còn.
-      importSheet
-        .getRange(batch.rowIndex, 7)
-        .setValue(newRemaining);
-
-      allocations.push({
-        rowIndex: batch.rowIndex,
-        lot: batch.lot,
-        expiry: batch.expiry,
-        quantity: exportQty,
-        unitPrice: batch.unitPrice
-      });
-
-      remainingToExport -= exportQty;
-    }
-
-    if (remainingToExport > 0) {
-      throw new Error('Không thể hoàn tất cấp phát do sai lệch tồn kho.');
-    }
-
-    const now = new Date();
-    const exportId =
-      'PX-' +
-      Utilities.formatDate(
-        now,
-        Session.getScriptTimeZone(),
-        'yyyyMMdd-HHmmss'
-      ) +
-      '-' +
-      Math.floor(Math.random() * 1000);
-
-    exportSheet.appendRow([
-      exportId,
-      now,
-      code,
-      product['Tên sản phẩm'] || '',
-      quantity,
-      receiver,
-      department,
-      performer,
-      note
-    ]);
-
-    const detailRows = allocations.map(a => [
-      exportId,
-      code,
-      product['Tên sản phẩm'] || '',
-      a.lot,
-      a.expiry,
-      a.quantity
-    ]);
-
-    if (detailRows.length) {
-      detailSheet
-        .getRange(
-          detailSheet.getLastRow() + 1,
-          1,
-          detailRows.length,
-          detailRows[0].length
-        )
-        .setValues(detailRows);
-    }
-
-    auditSheet.appendRow([
-      now,
-      'CẤP PHÁT',
-      exportId,
-      code,
-      quantity,
-      performer,
-      'Cấp phát thuốc cho ' + receiver + ' - ' + department,
-      ''
-    ]);
-
+function createImport_(ss,p){
+  const lock=LockService.getScriptLock(); lock.waitLock(30000);
+  try{
+    const code=String(p.code||'').trim(), lot=String(p.lot||'').trim(), supplier=String(p.supplier||'').trim(), performer=String(p.performer||'Admin').trim();
+    const qty=Number(p.quantity), price=Number(p.price||0), importDate=parseDate_(p.importDate)||new Date(), expiry=parseDate_(p.expiry);
+    if(!code||!lot)throw new Error('Mã SP và số lô là bắt buộc.');
+    if(!Number.isFinite(qty)||qty<=0)throw new Error('Số lượng nhập phải lớn hơn 0.');
+    if(!Number.isFinite(price)||price<0)throw new Error('Đơn giá không hợp lệ.');
+    if(!expiry)throw new Error('Vui lòng nhập hạn sử dụng.');
+    if(expiry.getTime()<importDate.getTime())throw new Error('Hạn sử dụng không được trước ngày nhập.');
+    const products=getSheetData_(ss,'Sản phẩm'), product=products.find(r=>String(r['Mã SP']).trim()===code);
+    if(!product)throw new Error('Không tìm thấy sản phẩm '+code+'. Hãy tạo sản phẩm trước.');
+    if(String(product['Trạng thái']).toUpperCase()==='INACTIVE')throw new Error('Sản phẩm đang INACTIVE.');
+    const imports=getSheetData_(ss,'Nhập kho');
+    if(imports.some(r=>String(r['Mã SP']).trim()===code&&String(r['Số lô']).trim()===lot&&String(r['Hạn sử dụng'])===String(expiry))){}
+    const now=new Date(), id=makeId_('PN',now);
+    ss.getSheetByName('Nhập kho').appendRow([id,importDate,code,product['Tên sản phẩm']||'',lot,qty,qty,expiry,price,supplier,performer,String(p.note||'').trim()]);
+    audit_(ss,'NHẬP KHO',id,code,qty,performer,'Nhập lô '+lot);
     SpreadsheetApp.flush();
-
-    return {
-      status: 'success',
-      message: 'Cấp phát thuốc thành công.',
-      exportId: exportId,
-      code: code,
-      quantity: quantity,
-      allocations: allocations.map(a => ({
-        lot: a.lot,
-        expiry: formatDate_(a.expiry),
-        quantity: a.quantity
-      }))
-    };
-
-  } finally {
-    try {
-      lock.releaseLock();
-    } catch (e) {}
-  }
+    return {status:'success',message:'Nhập kho thành công.',importId:id};
+  }finally{lock.releaseLock();}
 }
 
-/**
- * Dashboard thực tế.
- */
-function getDashboard_(ss) {
-  const productRows = getSheetData_(ss, 'Sản phẩm');
-  const importRows = getSheetData_(ss, 'Nhập kho');
-  const exportRows = getSheetData_(ss, 'Xuất kho');
-
-  let totalStock = 0;
-  let stockValue = 0;
-  let lowStock = 0;
-  let expired = 0;
-  let expiringSoon = 0;
-
-  const stockByCode = {};
-
-  importRows.forEach(r => {
-    const code = String(r['Mã SP'] || '').trim();
-    const remaining = Number(r['Số lượng còn']) || 0;
-    const unitPrice = Number(r['Đơn giá']) || 0;
-
-    if (!code) return;
-
-    stockByCode[code] = (stockByCode[code] || 0) + remaining;
-    totalStock += remaining;
-    stockValue += remaining * unitPrice;
-
-    const expiry = r['Hạn sử dụng'] instanceof Date
-      ? r['Hạn sử dụng']
-      : new Date(r['Hạn sử dụng']);
-
-    if (remaining > 0 && isValidDate_(expiry)) {
-      const diffDays =
-        (expiry.getTime() - Date.now()) /
-        (1000 * 60 * 60 * 24);
-
-      if (diffDays < 0) expired++;
-      else if (diffDays <= 30) expiringSoon++;
+function exportMedicine_(ss,p){
+  const lock=LockService.getScriptLock(); lock.waitLock(30000);
+  try{
+    const code=String(p.code||'').trim(), quantity=Number(p.quantity), receiver=String(p.receiver||'').trim(), department=String(p.department||'').trim(), performer=String(p.performer||'Admin').trim(), note=String(p.note||'').trim();
+    if(!code)throw new Error('Chưa chọn sản phẩm.'); if(!Number.isFinite(quantity)||quantity<=0)throw new Error('Số lượng cấp phát phải lớn hơn 0.'); if(!receiver)throw new Error('Chưa nhập người nhận.'); if(!department)throw new Error('Chưa nhập bộ phận.');
+    const products=getSheetData_(ss,'Sản phẩm'), product=products.find(r=>String(r['Mã SP']).trim()===code);
+    if(!product)throw new Error('Không tìm thấy sản phẩm.'); if(String(product['Trạng thái']).toUpperCase()==='INACTIVE')throw new Error('Sản phẩm đang INACTIVE.');
+    const sh=ss.getSheetByName('Nhập kho'), values=sh.getDataRange().getValues(), batches=[];
+    for(let i=1;i<values.length;i++){
+      const row=values[i], rowCode=String(row[2]||'').trim(), remaining=Number(row[6])||0; if(rowCode!==code||remaining<=0)continue;
+      const expiry=parseDate_(row[7]); if(!expiry||expiry.getTime()<Date.now())continue;
+      batches.push({rowIndex:i+1,importDate:parseDate_(row[1])||new Date(8640000000000000),lot:String(row[4]||''),remaining,expiry,unitPrice:Number(row[8])||0});
     }
-  });
-
-  productRows.forEach(p => {
-    const code = String(p['Mã SP'] || '').trim();
-    const minimum = Number(p['Tồn tối thiểu']) || 0;
-    const stock = stockByCode[code] || 0;
-
-    if (minimum > 0 && stock <= minimum) {
-      lowStock++;
-    }
-  });
-
-  const today = new Date();
-  const todayKey = Utilities.formatDate(
-    today,
-    Session.getScriptTimeZone(),
-    'yyyy-MM-dd'
-  );
-
-  let todayExportQty = 0;
-
-  exportRows.forEach(r => {
-    const d = r['Thời gian'] instanceof Date
-      ? r['Thời gian']
-      : new Date(r['Thời gian']);
-
-    if (!isValidDate_(d)) return;
-
-    const key = Utilities.formatDate(
-      d,
-      Session.getScriptTimeZone(),
-      'yyyy-MM-dd'
-    );
-
-    if (key === todayKey) {
-      todayExportQty += Number(r['Tổng số lượng']) || 0;
-    }
-  });
-
-  return {
-    status: 'success',
-    products: productRows.length,
-    totalStock: totalStock,
-    stockValue: stockValue,
-    todayOrders: exportRows.filter(r => {
-      const d = r['Thời gian'] instanceof Date
-        ? r['Thời gian']
-        : new Date(r['Thời gian']);
-
-      if (!isValidDate_(d)) return false;
-
-      return Utilities.formatDate(
-        d,
-        Session.getScriptTimeZone(),
-        'yyyy-MM-dd'
-      ) === todayKey;
-    }).length,
-    todayExportQty: todayExportQty,
-    lowStock: lowStock,
-    expired: expired,
-    expiringSoon: expiringSoon,
-    recentActivities: exportRows.slice(-10).reverse(),
-    // Trả thêm dữ liệu cho frontend để đồng bộ 7 tab Google Sheets.
-    imports: importRows,
-    catalog: getSheetData_(ss, 'Danh mục'),
-    audit: getSheetData_(ss, 'AuditLog')
-  };
+    batches.sort((a,b)=>a.expiry-b.expiry||a.importDate-b.importDate);
+    const total=batches.reduce((s,b)=>s+b.remaining,0); if(total<quantity)throw new Error('Không đủ tồn kho. Tồn khả dụng: '+total+'.');
+    let need=quantity; const allocations=[];
+    for(const b of batches){if(need<=0)break;const q=Math.min(need,b.remaining);allocations.push({...b,quantity:q});need-=q;}
+    allocations.forEach(a=>sh.getRange(a.rowIndex,7).setValue(a.remaining-a.quantity));
+    const now=new Date(), id=makeId_('PX',now), out=ss.getSheetByName('Xuất kho'), detail=ss.getSheetByName('Chi tiết cấp phát');
+    out.appendRow([id,now,code,product['Tên sản phẩm']||'',quantity,receiver,department,performer,note]);
+    if(allocations.length) detail.getRange(detail.getLastRow()+1,1,allocations.length,7).setValues(allocations.map(a=>[id,code,product['Tên sản phẩm']||'',a.lot,a.expiry,a.quantity,a.unitPrice]));
+    audit_(ss,'CẤP PHÁT',id,code,quantity,performer,'Cấp phát cho '+receiver+' - '+department);
+    SpreadsheetApp.flush();
+    return {status:'success',message:'Cấp phát thành công.',exportId:id,allocations:allocations.map(a=>({lot:a.lot,expiry:formatDate_(a.expiry),quantity:a.quantity}))};
+  }finally{lock.releaseLock();}
 }
 
-/**
- * Tồn theo mã thuốc.
- */
-function getStock_(ss) {
-  const products = getSheetData_(ss, 'Sản phẩm');
-  const imports = getSheetData_(ss, 'Nhập kho');
-
-  const stock = {};
-
-  imports.forEach(r => {
-    const code = String(r['Mã SP'] || '').trim();
-    if (!code) return;
-
-    if (!stock[code]) {
-      stock[code] = {
-        code: code,
-        name: r['Tên sản phẩm'] || '',
-        quantity: 0,
-        batches: 0
-      };
-    }
-
-    stock[code].quantity += Number(r['Số lượng còn']) || 0;
-    stock[code].batches++;
-  });
-
-  return products.map(p => ({
-    code: p['Mã SP'],
-    name: p['Tên sản phẩm'],
-    unit: p['Đơn vị'],
-    minimum: Number(p['Tồn tối thiểu']) || 0,
-    quantity: stock[p['Mã SP']]
-      ? stock[p['Mã SP']].quantity
-      : 0,
-    batches: stock[p['Mã SP']]
-      ? stock[p['Mã SP']].batches
-      : 0,
-    status: p['Trạng thái'] || 'ACTIVE'
-  }));
+function getDashboard_(ss){
+  const products=getSheetData_(ss,'Sản phẩm'), imports=getSheetData_(ss,'Nhập kho'), exports=getSheetData_(ss,'Xuất kho'), stockMap={};
+  let totalStock=0,stockValue=0,lowStock=0,expired=0,expiringSoon=0;
+  imports.forEach(r=>{const c=String(r['Mã SP']||'').trim(),q=Number(r['Số lượng còn'])||0,price=Number(r['Đơn giá'])||0;if(!c)return;stockMap[c]=(stockMap[c]||0)+q;totalStock+=q;stockValue+=q*price;const ex=parseDate_(r['Hạn sử dụng']);if(q>0&&ex){const days=(ex-Date.now())/86400000;if(days<0)expired++;else if(days<=30)expiringSoon++;}});
+  products.forEach(p=>{const min=Number(p['Tồn tối thiểu'])||0;if(min>0&&(stockMap[String(p['Mã SP']).trim()]||0)<=min)lowStock++;});
+  const todayKey=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd');
+  const todayExports=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd')===todayKey;});
+  return {status:'success',products:products.length,totalStock,stockValue,todayOrders:todayExports.length,todayExportQty:todayExports.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),lowStock,expired,expiringSoon,recentActivities:exports.slice(-10).reverse(),imports,catalog:getSheetData_(ss,'Danh mục'),audit:getSheetData_(ss,'AuditLog')};
 }
-
-/**
- * Đảm bảo hệ thống luôn có đủ tab.
- */
-function ensureSystemSheets_(ss) {
-  Object.keys(SHEET_CONFIG).forEach(name => {
-    let sh = ss.getSheetByName(name);
-
-    if (!sh) {
-      sh = ss.insertSheet(name);
-    }
-
-    ensureHeaders_(sh, SHEET_CONFIG[name]);
-  });
+function getStock_(ss){
+  const products=getSheetData_(ss,'Sản phẩm'), imports=getSheetData_(ss,'Nhập kho'), stock={};
+  imports.forEach(r=>{const c=String(r['Mã SP']||'').trim();if(!c)return;if(!stock[c])stock[c]={quantity:0,batches:0};stock[c].quantity+=Number(r['Số lượng còn'])||0;stock[c].batches++;});
+  return products.map(p=>{const c=String(p['Mã SP']).trim(),s=stock[c]||{quantity:0,batches:0};return {code:p['Mã SP'],name:p['Tên sản phẩm'],unit:p['Đơn vị'],minimum:Number(p['Tồn tối thiểu'])||0,quantity:s.quantity,batches:s.batches,status:p['Trạng thái']||'ACTIVE'};});
 }
-
-/**
- * Đọc sheet thành array object.
- */
-function getSheetData_(ss, sheetName) {
-  const sh = ss.getSheetByName(sheetName);
-
-  if (!sh || sh.getLastRow() < 1) return [];
-
-  const data = sh
-    .getRange(1, 1, sh.getLastRow(), sh.getLastColumn())
-    .getValues();
-
-  if (!data.length) return [];
-
-  const headers = data[0].map(h => String(h).trim());
-
-  return data.slice(1)
-    .filter(row => row.some(v => v !== ''))
-    .map(row => {
-      const obj = {};
-      headers.forEach((h, i) => {
-        obj[h] = row[i];
-      });
-      return obj;
-    });
+function getReport_(ss,p){
+  const exports=getSheetData_(ss,'Xuất kho'), products=getSheetData_(ss,'Sản phẩm'), details=getSheetData_(ss,'Chi tiết cấp phát');
+  const month=String(p.month||Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM')), dept=String(p.department||'').trim(), code=String(p.code||'').trim();
+  const start=new Date(month+'-01T00:00:00'), end=new Date(start); end.setMonth(end.getMonth()+1);
+  const rows=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&d>=start&&d<end&&(!dept||String(r['Bộ phận']).trim()===dept)&&(!code||String(r['Mã SP']).trim()===code);});
+  const byDept={},byProduct={}; rows.forEach(r=>{const d=String(r['Bộ phận']||'Không xác định'),c=String(r['Mã SP']||'');const q=Number(r['Tổng số lượng'])||0;byDept[d]=(byDept[d]||0)+q;byProduct[c]=(byProduct[c]||0)+q;});
+  const detailMap={}; details.forEach(r=>{const id=String(r['Mã phiếu cấp phát']);detailMap[id]=(detailMap[id]||0)+(Number(r['Số lượng xuất'])||0);});
+  const productName={};products.forEach(r=>productName[String(r['Mã SP'])]=r['Tên sản phẩm']);
+  return {status:'success',month,department:dept,product:code,orders:rows.length,quantity:rows.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),departments:Object.keys(byDept).sort().map(k=>({department:k,quantity:byDept[k]})),products:Object.keys(byProduct).sort((a,b)=>byProduct[b]-byProduct[a]).map(k=>({code:k,name:productName[k]||k,quantity:byProduct[k]})),rows:rows.slice().reverse()};
 }
-
-/**
- * Kiểm tra ngày hợp lệ.
- */
-function isValidDate_(d) {
-  return d instanceof Date &&
-    !isNaN(d.getTime());
+function getSheetData_(ss,name){
+  const sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()<2)return [];
+  const data=sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(), headers=data[0].map(h=>String(h).trim());
+  return data.slice(1).filter(r=>r.some(v=>v!=='')).map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]);return o;});
 }
-
-function formatDate_(d) {
-  if (!isValidDate_(d)) return '';
-
-  return Utilities.formatDate(
-    d,
-    Session.getScriptTimeZone(),
-    'dd/MM/yyyy'
-  );
-}
-
-function createJsonResponse(data) {
-  return ContentService
-    .createTextOutput(
-      JSON.stringify(data, (_, value) => {
-        if (value instanceof Date) {
-          return Utilities.formatDate(
-            value,
-            Session.getScriptTimeZone(),
-            'yyyy-MM-dd HH:mm:ss'
-          );
-        }
-        return value;
-      })
-    )
-    .setMimeType(ContentService.MimeType.JSON);
-}
+function audit_(ss,action,id,code,qty,performer,note){ss.getSheetByName('AuditLog').appendRow([new Date(),action,id,code,qty,performer,note,'']);}
+function makeId_(prefix,d){return prefix+'-'+Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyyMMdd-HHmmss')+'-'+Utilities.getUuid().slice(0,6).toUpperCase();}
+function formatDate_(d){return d?Utilities.formatDate(d,Session.getScriptTimeZone(),'dd/MM/yyyy'):'';}
+function json_(data){return ContentService.createTextOutput(JSON.stringify(data,(_,v)=>v instanceof Date?Utilities.formatDate(v,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):v)).setMimeType(ContentService.MimeType.JSON);}
