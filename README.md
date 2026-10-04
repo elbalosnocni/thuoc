@@ -6,7 +6,7 @@ Bộ này là bản hợp nhất từ 2 bộ code đã kiểm tra:
 - **Backend:** Google Apps Script Web App → `Code.gs`
 - **Database:** Google Sheets
 - **Giao tiếp:** JSONP qua `doGet`, nên frontend GitHub Pages không phụ thuộc `google.script.run` và không cần CORS proxy.
-- **Nghiệp vụ giữ lại từ bộ V3:** đăng nhập, phân quyền, quản lý user, sản phẩm, nhập kho theo lô, FEFO, khóa phiếu cấp phát, hoàn nguyên tồn khi lỗi, báo cáo, audit log.
+- **Nghiệp vụ giữ lại từ bộ V4.1:** đăng nhập, phân quyền, quản lý user, sản phẩm, nhập kho theo lô, FEFO, khóa phiếu cấp phát, hoàn nguyên tồn khi lỗi, báo cáo, audit log.
 
 ## 1. Cài backend
 
@@ -69,7 +69,7 @@ Nếu giao dịch lỗi sau khi đã trừ tồn, hệ thống cố gắng hoàn
 ## 7. Các điểm đã tối ưu khi hợp nhất
 
 - Loại bỏ bộ API đơn giản bị giới hạn của bản cũ.
-- Giữ lõi nghiệp vụ đầy đủ của V3.
+- Giữ lõi nghiệp vụ đầy đủ của V4.1.
 - Loại bỏ **2 cụm input URL API trùng ID** trên màn hình đăng nhập.
 - Loại bỏ URL Apps Script deployment cũ bị hard-code trong frontend.
 - Chuẩn hóa tên phiên bản thành V4.1.
@@ -82,10 +82,7 @@ Nếu giao dịch lỗi sau khi đã trừ tồn, hệ thống cố gắng hoàn
 Bản V4.1 sửa lỗi bootstrap frontend khiến JavaScript dừng ngay khi mở GitHub Pages:
 
 - Bổ sung đúng `<form id="login-form">` cho màn hình đăng nhập.
-- Bổ sung `api-url`, `api-test`, `api-test-msg` đúng với JavaScript.
 - Không còn tham chiếu phần tử HTML không tồn tại.
-- Giữ tương thích token `kho_v3_token` cũ nhưng lưu phiên mới bằng `kho_v4_token`.
-- URL Apps Script có thể kiểm tra trực tiếp bằng nút **Kiểm tra API**.
 - Nút đăng nhập có trạng thái đang xử lý để tránh bấm nhiều lần.
 - Backend nâng phiên bản lên V4.1.0; nghiệp vụ FEFO/LOCKED không thay đổi.
 

@@ -39,8 +39,6 @@ function doGet(e){
     const args=Array.isArray(req.args)?req.args:[];
     if(action==='ping'){
       result={status:'success',ok:true,version:APP_VERSION,message:'Google Apps Script Web API dang hoat dong.',time:now_()};
-    }else if(action==='setup'){
-      result=setupV2();
     }else{
       result=dispatchApi_(action,args);
     }
@@ -161,7 +159,7 @@ function seedConfig_(book){
     for(let i=1;i<vals.length;i++){
       const key=String(vals[i][0]||'').trim();
       if(key==='APP_VERSION')sh.getRange(i+1,2).setValue(APP_VERSION);
-      if(key==='APP_NAME' && !String(vals[i][1]||'').trim())sh.getRange(i+1,2).setValue('Quản lý kho thuốc V3');
+      if(key==='APP_NAME' && !String(vals[i][1]||'').trim())sh.getRange(i+1,2).setValue('Quản lý kho thuốc V4.1');
     }
   }
 }
