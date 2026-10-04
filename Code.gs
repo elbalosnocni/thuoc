@@ -1,10 +1,10 @@
 /**
  * QUẢN LÝ KHO THUỐC - V3
- * Kiến trúc: Google Apps Script HTML Service + google.script.run
- * Không dùng fetch/CORS/JSONP. Frontend và backend cùng origin Apps Script.
+ * Kiến trúc: GitHub Pages + Google Apps Script Web API.
+ * Frontend dùng JSONP để không phụ thuộc CORS.
  */
 const SPREADSHEET_ID = '1ZT7EeWVtJ8WkUWy7voM8FWxqBfMekvoeCo53Q3p9bJg';
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const SESSION_TTL = 21600; // 6 giờ
 
 const SHEETS = {
@@ -23,12 +23,75 @@ function ss_(){return SpreadsheetApp.openById(SPREADSHEET_ID);}
 function tz_(){return Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh';}
 function now_(){return new Date();}
 
-function doGet(){
+/**
+ * Web API cho GitHub Pages.
+ * Dùng JSONP để tránh CORS khi frontend chạy ngoài Apps Script.
+ * payload = {action:'login', args:[...]}
+ */
+function doGet(e){
+  const p=(e&&e.parameter)||{};
+  const callback=String(p.callback||'').trim();
+  let result;
+  try{
+    let req={};
+    if(p.payload) req=JSON.parse(p.payload);
+    const action=String(req.action||p.action||'').trim();
+    const args=Array.isArray(req.args)?req.args:[];
+    if(action==='setup'){
+      result=setupV2();
+    }else{
+      result=dispatchApi_(action,args);
+    }
+    if(!result || typeof result!=='object') result={status:'success',data:result};
+  }catch(err){
+    result={status:'error',message:err&&err.message?err.message:String(err)};
+  }
+  if(callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)){
+    return ContentService.createTextOutput(callback+'('+JSON.stringify(result)+');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** POST vẫn được giữ để có thể dùng cho các client khác. */
+function doPost(e){
+  try{
+    const body=e&&e.postData&&e.postData.contents?JSON.parse(e.postData.contents):{};
+    const action=String(body.action||'').trim();
+    const args=Array.isArray(body.args)?body.args:[];
+    return ContentService.createTextOutput(JSON.stringify(dispatchApi_(action,args)))
+      .setMimeType(ContentService.MimeType.JSON);
+  }catch(err){
+    return ContentService.createTextOutput(JSON.stringify({status:'error',message:err&&err.message?err.message:String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function dispatchApi_(action,args){
   ensureReady_();
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('Quản lý kho thuốc V2')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  switch(action){
+    case 'login': return login(args[0],args[1]);
+    case 'logout': return logout(args[0]);
+    case 'me': return me(args[0]);
+    case 'changePassword': return changePassword(args[0],args[1],args[2]);
+    case 'listUsers': return listUsers(args[0]);
+    case 'saveUser': return saveUser(args[0],args[1]||{});
+    case 'setUserStatus': return setUserStatus(args[0],args[1],args[2]);
+    case 'resetUserPassword': return resetUserPassword(args[0],args[1],args[2]);
+    case 'getApp': return getApp(args[0]);
+    case 'getProducts': return getProducts(args[0]);
+    case 'getStock': return getStock(args[0]);
+    case 'getReport': return getReport(args[0],args[1]||{});
+    case 'getAudit': return getAudit(args[0]);
+    case 'createProduct': return createProduct(args[0],args[1]||{});
+    case 'updateProduct': return updateProduct(args[0],args[1]||{});
+    case 'deleteProduct': return deleteProduct(args[0],args[1]||{});
+    case 'createImport': return createImport(args[0],args[1]||{});
+    case 'createIssue': return createIssue(args[0],args[1]||{});
+    case 'getIssueDetails': return getIssueDetails(args[0],args[1]);
+    default: throw new Error('API action không được hỗ trợ: '+action);
+  }
 }
 
 function setupV2(){setupV2_(); return {status:'success',version:APP_VERSION,message:'Đã cập nhật cấu trúc V3.'};}

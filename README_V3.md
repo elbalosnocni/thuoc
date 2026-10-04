@@ -1,55 +1,62 @@
-# QUẢN LÝ KHO THUỐC V3
+# QUẢN LÝ KHO THUỐC V3 – GITHUB PAGES + APPS SCRIPT API
 
-## V3 chọn V2 làm nền tảng chính
-- Không dùng fetch/CORS/JSONP.
-- `index.html` chạy trực tiếp bằng Google Apps Script HTML Service.
-- Frontend gọi backend bằng `google.script.run`.
-- Giữ dữ liệu cũ, không reset/xóa sheet khi setup.
+## Kiến trúc
 
-## Những gì V3 cải thiện
-1. Loading toàn hệ thống khi đang gọi Apps Script.
-2. Tự xử lý phiên đăng nhập hết hạn và đưa về màn hình đăng nhập.
-3. Không chạy setup/format toàn bộ sheet ở mọi lần đăng nhập nếu hệ thống đã sẵn sàng.
-4. Kiểm tra đủ sheet + header trước khi tự setup.
-5. Cấp phát FEFO có LockService và hoàn nguyên `Số lượng còn` nếu bước ghi phiếu/chi tiết bị lỗi.
-6. Admin có Reset MK cho tài khoản khác; tài khoản được reset sẽ phải đổi mật khẩu khi đăng nhập lại.
-7. Giảm dữ liệu trả về cho vai trò CAP_PHAT: không tải toàn bộ tab Nhập kho.
-8. Giữ phân quyền backend: ADMIN / KHO / CAP_PHAT.
-9. Giữ khóa phiếu sau cấp phát, Audit Log, báo cáo, CRUD sản phẩm, nhập kho.
-10. Cập nhật phiên bản Config lên V3 mà không xóa dữ liệu.
+```text
+GitHub Pages (index.html)
+        │
+        │ JSONP API
+        ▼
+Google Apps Script Web App (Code.gs)
+        │
+        ▼
+Google Sheets
+```
 
-## Tài khoản ban đầu
-- admin / Admin@12345
-- kho / Kho@12345
-- capphat / CapPhat@12345
+Frontend **không dùng `google.script.run`**. Vì vậy `index.html` có thể chạy trực tiếp trên GitHub Pages.
 
-Tất cả tài khoản mặc định phải đổi mật khẩu lần đầu.
+Frontend dùng JSONP để tránh lỗi CORS/`Failed to fetch` khi gọi Apps Script từ domain GitHub Pages.
 
 ## Cài đặt
-1. Mở project Google Apps Script đang có quyền truy cập Spreadsheet.
-2. Thay `Code.gs` và `index.html` bằng hai file trong ZIP.
-3. Kiểm tra `SPREADSHEET_ID` trong `Code.gs`.
-4. Chạy hàm `setupV2()` một lần trong Apps Script và cấp quyền.
-5. Deploy > New deployment > Web app.
-6. Execute as: Me.
-7. Who has access: chọn phạm vi người dùng phù hợp.
-8. Mở URL Web App của Apps Script.
 
-## Quan trọng
-V3 KHÔNG chạy theo mô hình GitHub Pages + fetch API của V1. Đây là chủ ý để loại bỏ lỗi CORS / Failed to fetch.
-Nếu triển khai V3, hãy sử dụng URL Web App của Google Apps Script.
+1. Mở Google Apps Script của hệ thống.
+2. Thay toàn bộ `Code.gs` bằng file `Code.gs` trong bộ này.
+3. Trong Apps Script chạy `setupV2()` một lần và cấp quyền.
+4. Vào **Deploy → Manage deployments**.
+5. Tạo/cập nhật **Web app**:
+   - Execute as: **Me**
+   - Who has access: tài khoản/người dùng phù hợp với hệ thống.
+6. Lấy URL `/exec` của Web app.
+7. Mở `index.html`, tìm:
 
-## Dữ liệu cũ
-- Không reset dữ liệu.
-- Tự tạo các sheet còn thiếu.
-- Tự bổ sung cột khóa cho `Xuất kho`.
-- `Chi tiết cấp phát` có thêm `Đơn giá`.
-- Các phiếu `Xuất kho` cũ không có trạng thái sẽ được xem là LOCKED khi migration.
+```javascript
+const GAS_API_URL='.../exec';
+```
 
-## Phân quyền
-- ADMIN: toàn quyền.
-- KHO: sản phẩm, nhập kho, tồn, báo cáo, lịch sử.
-- CAP_PHAT: dashboard, tồn, cấp phát, báo cáo, lịch sử; nếu có Bộ phận thì chỉ được cấp phát cho đúng bộ phận.
+và đặt đúng URL Web app của Apps Script.
+8. Đưa `index.html` lên GitHub Pages.
 
-## Ghi chú bảo mật
-Mật khẩu không lưu dạng rõ; hệ thống lưu SHA-256(password + salt). Session token dùng Script Cache TTL 6 giờ.
+> Nếu cập nhật `Code.gs` trong cùng deployment, nhớ tạo **New version** và cập nhật deployment.
+
+## Tài khoản khởi tạo
+
+- `admin` / `Admin@12345`
+- `kho` / `Kho@12345`
+- `capphat` / `CapPhat@12345`
+
+Các tài khoản khởi tạo yêu cầu đổi mật khẩu lần đầu.
+
+## Các điểm đã sửa trong V3 GitHub Pages
+
+- Loại bỏ hoàn toàn `google.script.run`.
+- API trung tâm `dispatchApi_()` kiểm soát toàn bộ action từ frontend.
+- JSONP callback được kiểm tra tên hợp lệ trước khi trả JavaScript.
+- Có timeout 30 giây ở frontend.
+- Có loading toàn hệ thống.
+- API lỗi/phiên hết hạn được đưa về màn hình đăng nhập.
+- Giữ đăng nhập, đổi/reset mật khẩu, người dùng, sản phẩm, nhập kho, FEFO, cấp phát, báo cáo, lịch sử, audit.
+- Cấp phát dùng `LockService` và hoàn nguyên tồn nếu ghi phiếu thất bại.
+
+## Lưu ý bảo mật
+
+JSONP được chọn vì yêu cầu chạy trực tiếp trên GitHub Pages và không phụ thuộc CORS. Token phiên là chuỗi ngẫu nhiên và có thời hạn 6 giờ. Không chia sẻ URL API kèm token cho người khác.
