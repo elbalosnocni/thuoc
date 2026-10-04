@@ -1,4 +1,4 @@
-# Quản lý kho thuốc — GitHub Web App V4
+# Quản lý kho thuốc — GitHub Web App V4.1
 
 Bộ này là bản hợp nhất từ 2 bộ code đã kiểm tra:
 
@@ -72,12 +72,24 @@ Nếu giao dịch lỗi sau khi đã trừ tồn, hệ thống cố gắng hoàn
 - Giữ lõi nghiệp vụ đầy đủ của V3.
 - Loại bỏ **2 cụm input URL API trùng ID** trên màn hình đăng nhập.
 - Loại bỏ URL Apps Script deployment cũ bị hard-code trong frontend.
-- Chuẩn hóa tên phiên bản thành V4.
+- Chuẩn hóa tên phiên bản thành V4.1.
 - Giữ JSONP để GitHub Pages gọi Apps Script mà không cần `google.script.run`.
 - Thêm `appsscript.json` để backend có cấu hình runtime/timezone rõ ràng.
 - Kiểm tra syntax JavaScript trước khi đóng gói.
 
-## 8. Cảnh báo
+## 8. Đã sửa lỗi web không chạy
+
+Bản V4.1 sửa lỗi bootstrap frontend khiến JavaScript dừng ngay khi mở GitHub Pages:
+
+- Bổ sung đúng `<form id="login-form">` cho màn hình đăng nhập.
+- Bổ sung `api-url`, `api-test`, `api-test-msg` đúng với JavaScript.
+- Không còn tham chiếu phần tử HTML không tồn tại.
+- Giữ tương thích token `kho_v3_token` cũ nhưng lưu phiên mới bằng `kho_v4_token`.
+- URL Apps Script có thể kiểm tra trực tiếp bằng nút **Kiểm tra API**.
+- Nút đăng nhập có trạng thái đang xử lý để tránh bấm nhiều lần.
+- Backend nâng phiên bản lên V4.1.0; nghiệp vụ FEFO/LOCKED không thay đổi.
+
+## 9. Cảnh báo
 
 Đây là hệ thống nội bộ dùng Google Sheets làm database. Không nên xem đây là hệ thống ERP/y tế có yêu cầu bảo mật cấp doanh nghiệp.
 

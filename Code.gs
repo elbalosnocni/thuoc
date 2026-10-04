@@ -1,10 +1,10 @@
 /**
- * QUẢN LÝ KHO THUỐC - V3
+ * QUẢN LÝ KHO THUỐC - V4.1
  * Kiến trúc: GitHub Pages + Google Apps Script Web API.
  * Frontend dùng JSONP để không phụ thuộc CORS.
  */
 const SPREADSHEET_ID = '1ZT7EeWVtJ8WkUWy7voM8FWxqBfMekvoeCo53Q3p9bJg';
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.1.0';
 const SESSION_TTL = 21600; // 6 giờ
 
 const SHEETS = {
@@ -154,7 +154,7 @@ function seedConfig_(book){
   const sh=book.getSheetByName(SHEETS.CONFIG.name);
   if(sh.getLastRow()<=1){
     sh.getRange(2,1,5,3).setValues([
-      ['APP_NAME','Quản lý kho thuốc V3','Tên hệ thống'],['APP_VERSION',APP_VERSION,'Phiên bản'],['STOCK_METHOD','FEFO','Xuất hạn dùng gần nhất trước'],['LOW_STOCK_DEFAULT','10','Ngưỡng tồn thấp mặc định'],['TIMEZONE',tz_(),'Múi giờ']
+      ['APP_NAME','Quản lý kho thuốc V4.1','Tên hệ thống'],['APP_VERSION',APP_VERSION,'Phiên bản'],['STOCK_METHOD','FEFO','Xuất hạn dùng gần nhất trước'],['LOW_STOCK_DEFAULT','10','Ngưỡng tồn thấp mặc định'],['TIMEZONE',tz_(),'Múi giờ']
     ]);
   }else{
     const vals=sh.getDataRange().getValues();
