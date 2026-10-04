@@ -1,260 +1,186 @@
-/*******************************************************
- * HỆ THỐNG QUẢN LÝ CẤP PHÁT THUỐC
- * Google Apps Script - quy trình khép kín:
- * Sản phẩm -> Nhập kho -> Tồn kho -> Cấp phát FEFO -> Báo cáo
- *******************************************************/
+/**
+ * QUẢN LÝ KHO THUỐC - V2
+ * Kiến trúc: Google Apps Script HTML Service + google.script.run
+ * Không dùng fetch/CORS/JSONP. Frontend và backend cùng origin Apps Script.
+ */
 const SPREADSHEET_ID = '1ZT7EeWVtJ8WkUWy7voM8FWxqBfMekvoeCo53Q3p9bJg';
+const APP_VERSION = '2.0.0';
+const SESSION_TTL = 21600; // 6 giờ
 
-const SHEET_CONFIG = {
-  'Sản phẩm': ['Mã SP','Tên sản phẩm','Hoạt chất','Đơn vị','Nhóm thuốc','Giá nhập','Giá xuất','Tồn tối thiểu','Trạng thái','Ghi chú'],
-  'Nhập kho': ['Mã phiếu nhập','Ngày nhập','Mã SP','Tên sản phẩm','Số lô','Số lượng nhập','Số lượng còn','Hạn sử dụng','Đơn giá','Nhà cung cấp','Người nhập','Ghi chú'],
-  'Xuất kho': ['Mã phiếu cấp phát','Thời gian','Mã SP','Tên sản phẩm','Tổng số lượng','Người nhận','Bộ phận','Người thực hiện','Ghi chú'],
-  'Chi tiết cấp phát': ['Mã phiếu cấp phát','Mã SP','Tên sản phẩm','Số lô','Hạn sử dụng','Số lượng xuất','Đơn giá'],
-  'Danh mục': ['Loại','Mã','Tên','Trạng thái','Ghi chú'],
-  'AuditLog': ['Thời gian','Hành động','Mã phiếu','Mã SP','Số lượng','Người thực hiện','Nội dung','IP/UserAgent'],
-  'Config': ['Key','Value','Mô tả']
+const SHEETS = {
+  PRODUCTS: {name:'Sản phẩm', headers:['Mã SP','Tên sản phẩm','Hoạt chất','Đơn vị','Nhóm thuốc','Giá nhập','Giá xuất','Tồn tối thiểu','Trạng thái','Ghi chú']},
+  IMPORTS: {name:'Nhập kho', headers:['Mã phiếu nhập','Ngày nhập','Mã SP','Tên sản phẩm','Số lô','Số lượng nhập','Số lượng còn','Hạn sử dụng','Đơn giá','Nhà cung cấp','Người nhập','Ghi chú']},
+  EXPORTS: {name:'Xuất kho', headers:['Mã phiếu cấp phát','Thời gian','Mã SP','Tên sản phẩm','Tổng số lượng','Người nhận','Bộ phận','Người thực hiện','Ghi chú','Trạng thái','Khóa lúc','Người khóa']},
+  DETAILS: {name:'Chi tiết cấp phát', headers:['Mã phiếu cấp phát','Mã SP','Tên sản phẩm','Số lô','Hạn sử dụng','Số lượng xuất','Đơn giá']},
+  CATALOG: {name:'Danh mục', headers:['Loại','Mã','Tên','Trạng thái','Ghi chú']},
+  AUDIT: {name:'AuditLog', headers:['Thời gian','Hành động','Mã phiếu','Mã SP','Số lượng','Người thực hiện','Nội dung','IP/UserAgent']},
+  CONFIG: {name:'Config', headers:['Key','Value','Mô tả']},
+  USERS: {name:'Users', headers:['Username','Họ tên','Vai trò','Bộ phận','PasswordHash','Salt','Hoạt động','Đổi mật khẩu','Lần đăng nhập','Tạo lúc']}
 };
+const ROLES = {ADMIN:'ADMIN', STORE:'KHO', DISPENSER:'CAP_PHAT'};
 
-function getSpreadsheet_(){ return SpreadsheetApp.openById(SPREADSHEET_ID); }
+function ss_(){return SpreadsheetApp.openById(SPREADSHEET_ID);}
+function tz_(){return Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh';}
+function now_(){return new Date();}
 
-function setupThuocSheets(){
-  const ss=getSpreadsheet_(), result=[];
-  Object.keys(SHEET_CONFIG).forEach(name=>{
-    let sh=ss.getSheetByName(name);
-    if(!sh){ sh=ss.insertSheet(name); result.push('Tạo tab: '+name); }
-    else result.push('Đã có tab: '+name);
-    ensureHeaders_(sh,SHEET_CONFIG[name]); formatSheet_(sh,SHEET_CONFIG[name]);
-  });
-  seedDanhMuc_(ss); seedConfig_(ss); SpreadsheetApp.flush(); return result;
+function doGet(){
+  setupV2_();
+  return HtmlService.createTemplateFromFile('index')
+    .evaluate()
+    .setTitle('Quản lý kho thuốc V2')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function resetThuocSheets(){
-  const ss=getSpreadsheet_();
-  Object.keys(SHEET_CONFIG).forEach(name=>{
-    let sh=ss.getSheetByName(name)||ss.insertSheet(name);
-    sh.clear(); sh.clearFormats(); ensureHeaders_(sh,SHEET_CONFIG[name]); formatSheet_(sh,SHEET_CONFIG[name]);
-  });
-  seedDanhMuc_(ss); seedConfig_(ss); SpreadsheetApp.flush();
+function setupV2(){setupV2_(); return {status:'success',version:APP_VERSION,message:'Đã cập nhật cấu trúc V2.'};}
+function setupV2_(){
+  const book=ss_();
+  Object.keys(SHEETS).forEach(k=>ensureSheet_(book,SHEETS[k].name,SHEETS[k].headers));
+  seedCatalog_(book); seedConfig_(book); seedAdmin_(book); migrateExportLockColumns_(book); formatSheets_(book);
+  SpreadsheetApp.flush();
 }
 
-function ensureHeaders_(sh,headers){
+function ensureSheet_(book,name,headers){
+  let sh=book.getSheetByName(name); if(!sh) sh=book.insertSheet(name);
   if(sh.getMaxColumns()<headers.length) sh.insertColumnsAfter(sh.getMaxColumns(),headers.length-sh.getMaxColumns());
-  const row=sh.getRange(1,1,1,headers.length).getValues()[0];
-  if(row.every(v=>String(v).trim()==='')) sh.getRange(1,1,1,headers.length).setValues([headers]);
-}
-function formatSheet_(sh,headers){
+  const first=sh.getRange(1,1,1,Math.max(headers.length,sh.getLastColumn()||headers.length)).getValues()[0];
+  headers.forEach((h,i)=>{if(String(first[i]||'').trim()!==h) sh.getRange(1,i+1).setValue(h);});
   sh.setFrozenRows(1);
-  sh.getRange(1,1,1,headers.length).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-  const dateHeaders=['Ngày nhập','Hạn sử dụng','Thời gian'];
-  const numberHeaders=['Số lượng nhập','Số lượng còn','Số lượng xuất','Tổng số lượng','Giá nhập','Giá xuất','Đơn giá','Tồn tối thiểu'];
-  headers.forEach((h,i)=>{
-    if(sh.getMaxRows()>1 && dateHeaders.indexOf(h)>=0) sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('dd/MM/yyyy HH:mm');
-    if(sh.getMaxRows()>1 && numberHeaders.indexOf(h)>=0) sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('#,##0.##');
-    sh.autoResizeColumn(i+1); const w=sh.getColumnWidth(i+1); if(w<90)sh.setColumnWidth(i+1,90); if(w>260)sh.setColumnWidth(i+1,260);
+}
+function migrateExportLockColumns_(book){
+  const sh=book.getSheetByName(SHEETS.EXPORTS.name); const h=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
+  ['Trạng thái','Khóa lúc','Người khóa'].forEach(x=>{if(h.indexOf(x)<0)sh.getRange(1,sh.getLastColumn()+1).setValue(x);});
+  const map=headerMap_(sh), lr=sh.getLastRow();
+  if(lr>1 && map['Trạng thái']){
+    const vals=sh.getRange(2,map['Trạng thái'],lr-1,1).getValues();
+    vals.forEach((r,i)=>{if(!String(r[0]||'').trim()) r[0]='LOCKED';});
+    sh.getRange(2,map['Trạng thái'],lr-1,1).setValues(vals);
+  }
+}
+function formatSheets_(book){
+  Object.keys(SHEETS).forEach(k=>{
+    const cfg=SHEETS[k],sh=book.getSheetByName(cfg.name); if(!sh) return;
+    const n=cfg.headers.length; sh.getRange(1,1,1,n).setFontWeight('bold').setBackground('#eef2ff').setWrap(true);
+    if(sh.getMaxRows()>1){
+      ['Ngày nhập','Hạn sử dụng','Thời gian','Khóa lúc','Lần đăng nhập','Tạo lúc'].forEach(h=>{const i=cfg.headers.indexOf(h);if(i>=0)sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('dd/MM/yyyy HH:mm:ss');});
+      ['Số lượng nhập','Số lượng còn','Số lượng xuất','Tổng số lượng','Giá nhập','Giá xuất','Đơn giá','Tồn tối thiểu'].forEach(h=>{const i=cfg.headers.indexOf(h);if(i>=0)sh.getRange(2,i+1,sh.getMaxRows()-1,1).setNumberFormat('#,##0.##');});
+    }
   });
 }
-function seedDanhMuc_(ss){
-  const sh=ss.getSheetByName('Danh mục'); if(!sh||sh.getLastRow()>1)return;
+function seedCatalog_(book){
+  const sh=book.getSheetByName(SHEETS.CATALOG.name); if(sh.getLastRow()>1)return;
   sh.getRange(2,1,9,5).setValues([
-    ['Trạng thái thuốc','ACTIVE','Đang sử dụng','ACTIVE',''],
-    ['Trạng thái thuốc','INACTIVE','Ngừng sử dụng','ACTIVE',''],
+    ['Trạng thái thuốc','ACTIVE','Đang sử dụng','ACTIVE',''],['Trạng thái thuốc','INACTIVE','Ngừng sử dụng','ACTIVE',''],
     ['Nhóm thuốc','THUOC','Thuốc','ACTIVE',''],['Nhóm thuốc','VTYT','Vật tư y tế','ACTIVE',''],
     ['Đơn vị','VIEN','Viên','ACTIVE',''],['Đơn vị','GOI','Gói','ACTIVE',''],['Đơn vị','CHAI','Chai','ACTIVE',''],['Đơn vị','ONG','Ống','ACTIVE',''],['Đơn vị','HOP','Hộp','ACTIVE','']
   ]);
 }
-function seedConfig_(ss){
-  const sh=ss.getSheetByName('Config'); if(!sh||sh.getLastRow()>1)return;
-  sh.getRange(2,1,4,3).setValues([
-    ['APP_NAME','Quản lý cấp phát thuốc','Tên hệ thống'],['STOCK_METHOD','FEFO','Xuất lô có hạn sử dụng gần nhất trước'],['LOW_STOCK_DEFAULT','10','Ngưỡng tồn tối thiểu mặc định'],['TIMEZONE',Session.getScriptTimeZone(),'Múi giờ Apps Script']
+function seedConfig_(book){
+  const sh=book.getSheetByName(SHEETS.CONFIG.name); if(sh.getLastRow()>1)return;
+  sh.getRange(2,1,5,3).setValues([
+    ['APP_NAME','Quản lý kho thuốc V2','Tên hệ thống'],['APP_VERSION',APP_VERSION,'Phiên bản'],['STOCK_METHOD','FEFO','Xuất hạn dùng gần nhất trước'],['LOW_STOCK_DEFAULT','10','Ngưỡng tồn thấp mặc định'],['TIMEZONE',tz_(),'Múi giờ']
   ]);
 }
-function ensureSystemSheets_(ss){ Object.keys(SHEET_CONFIG).forEach(n=>{let sh=ss.getSheetByName(n)||ss.insertSheet(n);ensureHeaders_(sh,SHEET_CONFIG[n]);}); }
-
-function doGet(e){
-  try{
-    const params=(e&&e.parameter)||{};
-    const action=String(params.action||'').trim();
-    const ss=getSpreadsheet_();
-    ensureSystemSheets_(ss);
-
-    let result;
-    if(action==='setup') result={status:'success',message:'Đã setup các tab.',sheets:Object.keys(SHEET_CONFIG)};
-    else if(action==='health') result={status:'success',message:'API đang hoạt động.',version:'2.1.0',spreadsheet:ss.getName(),timestamp:new Date()};
-    else if(action==='getProducts') result=getSheetData_(ss,'Sản phẩm');
-    else if(action==='getDashboard') result=getDashboard_(ss);
-    else if(action==='getStock') result=getStock_(ss);
-    else if(action==='getExportHistory') result=getSheetData_(ss,'Xuất kho');
-    else if(action==='getReport') result=getReport_(ss,params);
-    // JSONP fallback cho GitHub Pages: trình duyệt không bị chặn bởi CORS.
-    // Các action ghi dữ liệu được hỗ trợ qua GET vì Apps Script ContentService
-    // không cho phép tự đặt Access-Control-Allow-Origin cho fetch POST cross-origin.
-    else if(['createProduct','updateProduct','deleteProduct','createImport','exportFIFO','exportFEFO'].indexOf(action)>=0){
-      const payload=payloadFromParams_(params);
-      payload.action=action;
-      if(action==='createProduct') result=createProduct_(ss,payload);
-      else if(action==='updateProduct') result=updateProduct_(ss,payload);
-      else if(action==='deleteProduct') result=deleteProduct_(ss,payload);
-      else if(action==='createImport') result=createImport_(ss,payload);
-      else result=exportMedicine_(ss,payload);
-    } else result={status:'success',message:'API đang hoạt động.',actions:['health','getProducts','getDashboard','getStock','getExportHistory','getReport','createProduct','updateProduct','deleteProduct','createImport','exportFEFO']};
-
-    return respond_(result,params.callback);
-  }catch(err){ return respond_({status:'error',message:err&&err.message?err.message:String(err)},e&&e.parameter&&e.parameter.callback); }
+function seedAdmin_(book){
+  const sh=book.getSheetByName(SHEETS.USERS.name); if(sh.getLastRow()>1)return;
+  const salt=Utilities.getUuid();
+  // Mật khẩu khởi tạo: Admin@12345. Bắt buộc đổi ngay lần đầu đăng nhập.
+  sh.getRange(2,1,1,10).setValues([['admin','Quản trị hệ thống',ROLES.ADMIN,'',hashPassword_('Admin@12345',salt),salt,'ACTIVE','YES','',now_()]]);
+  sh.getRange(3,1,2,10).setValues([
+    ['kho','Nhân viên kho',ROLES.STORE,'',hashPassword_('Kho@12345',salt+'KHO'),salt+'KHO','ACTIVE','YES','',now_()],
+    ['capphat','Người cấp phát',ROLES.DISPENSER,'',hashPassword_('CapPhat@12345',salt+'CAP'),salt+'CAP','ACTIVE','YES','',now_()]
+  ]);
 }
 
-function payloadFromParams_(p){
-  const out={};
-  Object.keys(p||{}).forEach(k=>{ if(k!=='action'&&k!=='callback'&&k!=='t') out[k]=p[k]; });
-  return out;
+function login(username,password){
+  setupV2_(); username=String(username||'').trim().toLowerCase(); password=String(password||'');
+  if(!username||!password)throw new Error('Vui lòng nhập tài khoản và mật khẩu.');
+  const users=rows_(SHEETS.USERS.name), u=users.find(x=>String(x.Username).toLowerCase()===username);
+  if(!u||String(u['Hoạt động']).toUpperCase()!=='ACTIVE')throw new Error('Tài khoản không tồn tại hoặc đã bị khóa.');
+  if(hashPassword_(password,String(u.Salt))!==String(u.PasswordHash))throw new Error('Sai tài khoản hoặc mật khẩu.');
+  const token=Utilities.getUuid()+'-'+Utilities.getUuid();
+  const user={username:u.Username,name:u['Họ tên'],role:u['Vai trò'],department:u['Bộ phận']||'',forceChange:String(u['Đổi mật khẩu']).toUpperCase()==='YES'};
+  CacheService.getScriptCache().put('SESSION_'+token,JSON.stringify(user),SESSION_TTL);
+  updateUserLogin_(username);
+  audit_(null,'ĐĂNG NHẬP','', '', '', username,'Đăng nhập thành công');
+  return {status:'success',token,user};
+}
+function logout(token){if(token)CacheService.getScriptCache().remove('SESSION_'+token);return {status:'success'};}
+function me(token){const user=requireAuth_(token);return {status:'success',user};}
+function changePassword(token,oldPassword,newPassword){
+  const user=requireAuth_(token), username=user.username; if(String(newPassword).length<8)throw new Error('Mật khẩu mới tối thiểu 8 ký tự.');
+  const book=ss_(),sh=book.getSheetByName(SHEETS.USERS.name),vals=sh.getDataRange().getValues();let row=-1;
+  for(let i=1;i<vals.length;i++)if(String(vals[i][0]).toLowerCase()===username){row=i+1;break;} if(row<0)throw new Error('Không tìm thấy tài khoản.');
+  if(hashPassword_(String(oldPassword||''),String(vals[row-1][5]))!==String(vals[row-1][4]))throw new Error('Mật khẩu cũ không đúng.');
+  const salt=Utilities.getUuid();sh.getRange(row,5,1,4).setValues([[hashPassword_(newPassword,salt),salt,'ACTIVE','NO']]);
+  audit_(user,'ĐỔI MẬT KHẨU','', '', '',username,'Đổi mật khẩu');
+  return {status:'success',message:'Đã đổi mật khẩu.'};
+}
+function hashPassword_(password,salt){const bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,password+salt);return bytes.map(b=>(b<0?b+256:b).toString(16).padStart(2,'0')).join('');}
+function updateUserLogin_(username){const sh=ss_().getSheetByName(SHEETS.USERS.name),m=headerMap_(sh),vals=sh.getDataRange().getValues();for(let i=1;i<vals.length;i++){if(String(vals[i][m.Username-1]).toLowerCase()===username){sh.getRange(i+1,m['Lần đăng nhập']).setValue(now_());break;}}}
+
+function listUsers(token){requireRole_(token,[ROLES.ADMIN]);return {status:'success',users:rows_(SHEETS.USERS.name).map(u=>({username:u.Username,name:u['Họ tên'],role:u['Vai trò'],department:u['Bộ phận'],active:u['Hoạt động'],forceChange:u['Đổi mật khẩu'],lastLogin:u['Lần đăng nhập']}))};}
+function saveUser(token,p){
+  const actor=requireRole_(token,[ROLES.ADMIN]); setupV2_(); const sh=ss_().getSheetByName(SHEETS.USERS.name); const users=rows_(SHEETS.USERS.name);
+  const username=String(p.username||'').trim().toLowerCase(), name=String(p.name||'').trim(), role=String(p.role||'').trim(), dept=String(p.department||'').trim(), active=p.active===false?'INACTIVE':'ACTIVE';
+  if(!/^[a-z0-9._-]{3,30}$/.test(username))throw new Error('Tên đăng nhập chỉ gồm a-z, 0-9, ., _, - và dài 3-30 ký tự.');
+  if(!name||![ROLES.ADMIN,ROLES.STORE,ROLES.DISPENSER].includes(role))throw new Error('Thông tin tài khoản không hợp lệ.');
+  const exists=users.find(u=>String(u.Username).toLowerCase()===username);
+  if(exists)throw new Error('Tên đăng nhập đã tồn tại.');
+  const pwd=String(p.password||''); if(pwd.length<8)throw new Error('Mật khẩu tối thiểu 8 ký tự.');
+  const salt=Utilities.getUuid();sh.appendRow([username,name,role,dept,hashPassword_(pwd,salt),salt,active,'YES','',now_()]);
+  audit_(actor,'TẠO TÀI KHOẢN','', '', '',actor.username,'Tạo tài khoản '+username);return {status:'success'};
+}
+function setUserStatus(token,username,active){const actor=requireRole_(token,[ROLES.ADMIN]);username=String(username).trim().toLowerCase();if(username===actor.username)throw new Error('Không thể tự khóa tài khoản đang đăng nhập.');const sh=ss_().getSheetByName(SHEETS.USERS.name),m=headerMap_(sh),vals=sh.getDataRange().getValues();for(let i=1;i<vals.length;i++){if(String(vals[i][m.Username-1]).toLowerCase()===username){sh.getRange(i+1,m['Hoạt động']).setValue(active?'ACTIVE':'INACTIVE');audit_(actor,'ĐỔI TRẠNG THÁI TÀI KHOẢN','', '', '',actor.username,(active?'Mở khóa ':'Khóa ')+username);return {status:'success'};}}throw new Error('Không tìm thấy tài khoản.');}
+
+function getApp(token){
+  const user=requireAuth_(token); const book=ss_();
+  const products=getProducts_(), stock=getStock_(), dash=getDashboard_(), exports=getExports_();
+  return {status:'success',version:APP_VERSION,user,products,stock,dashboard:dash,exports,catalog:rows_(SHEETS.CATALOG.name),imports:rows_(SHEETS.IMPORTS.name),audit:user.role===ROLES.ADMIN?rows_(SHEETS.AUDIT.name):[]};
+}
+function getProducts(token){requireAuth_(token);return {status:'success',products:getProducts_()};}
+function getStock(token){requireAuth_(token);return {status:'success',stock:getStock_()};}
+function getReport(token,filters){const user=requireAuth_(token);if(user.role===ROLES.DISPENSER)filters=Object.assign({},filters,{department:user.department||String(filters&&filters.department||'')});return {status:'success',report:getReport_(filters||{})};}
+function getAudit(token){requireRole_(token,[ROLES.ADMIN]);return {status:'success',audit:rows_(SHEETS.AUDIT.name)};}
+
+function createProduct(token,p){const user=requireRole_(token,[ROLES.ADMIN,ROLES.STORE]);const x=validateProduct_(p),sh=ss_().getSheetByName(SHEETS.PRODUCTS.name);if(getProducts_().some(r=>r.code===x.code))throw new Error('Mã SP đã tồn tại.');sh.appendRow([x.code,x.name,x.activeIngredient,x.unit,x.group,x.cost,x.price,x.minimum,x.status,x.note]);audit_(user,'TẠO SẢN PHẨM','',x.code,'',user.username,'Tạo sản phẩm '+x.name);return {status:'success',product:x};}
+function updateProduct(token,p){const user=requireRole_(token,[ROLES.ADMIN,ROLES.STORE]);const x=validateProduct_(p),sh=ss_().getSheetByName(SHEETS.PRODUCTS.name),m=headerMap_(sh),vals=sh.getDataRange().getValues(),old=String(p.oldCode||x.code).trim();let row=-1;for(let i=1;i<vals.length;i++)if(String(vals[i][m['Mã SP']-1]).trim()===old){row=i+1;break;}if(row<0)throw new Error('Không tìm thấy sản phẩm.');if(old!==x.code&&getProducts_().some(r=>r.code===x.code))throw new Error('Mã SP mới đã tồn tại.');sh.getRange(row,1,1,10).setValues([[x.code,x.name,x.activeIngredient,x.unit,x.group,x.cost,x.price,x.minimum,x.status,x.note]]);audit_(user,'CẬP NHẬT SẢN PHẨM','',x.code,'',user.username,'Cập nhật sản phẩm');return {status:'success'};}
+function deleteProduct(token,p){const user=requireRole_(token,[ROLES.ADMIN]);const code=String(p.code||'').trim(),sh=ss_().getSheetByName(SHEETS.PRODUCTS.name),m=headerMap_(sh),vals=sh.getDataRange().getValues();let row=-1;for(let i=1;i<vals.length;i++)if(String(vals[i][m['Mã SP']-1]).trim()===code){row=i+1;break;}if(row<0)throw new Error('Không tìm thấy sản phẩm.');if(rows_(SHEETS.IMPORTS.name).some(r=>String(r['Mã SP']).trim()===code&&Number(r['Số lượng còn'])>0))throw new Error('Không thể xóa sản phẩm còn tồn. Hãy chuyển INACTIVE.');sh.deleteRow(row);audit_(user,'XÓA SẢN PHẨM','',code,'',user.username,'Xóa sản phẩm');return {status:'success'};}
+
+function createImport(token,p){const user=requireRole_(token,[ROLES.ADMIN,ROLES.STORE]);const lock=LockService.getScriptLock();lock.waitLock(30000);try{const code=String(p.code||'').trim(),lot=String(p.lot||'').trim(),supplier=String(p.supplier||'').trim(),qty=Number(p.quantity),price=Number(p.price||0),importDate=parseDate_(p.importDate)||now_(),expiry=parseDate_(p.expiry);if(!code||!lot)throw new Error('Mã SP và số lô là bắt buộc.');if(!Number.isFinite(qty)||qty<=0)throw new Error('Số lượng nhập phải > 0.');if(!Number.isFinite(price)||price<0)throw new Error('Đơn giá không hợp lệ.');if(!expiry)throw new Error('Vui lòng nhập hạn sử dụng.');if(expiry<importDate)throw new Error('Hạn sử dụng không được trước ngày nhập.');const product=getProducts_().find(x=>x.code===code);if(!product)throw new Error('Không tìm thấy sản phẩm.');if(product.status==='INACTIVE')throw new Error('Sản phẩm đang INACTIVE.');const id=makeId_('PN');ss_().getSheetByName(SHEETS.IMPORTS.name).appendRow([id,importDate,code,product.name,lot,qty,qty,expiry,price,supplier,user.username,String(p.note||'').trim()]);audit_(user,'NHẬP KHO',id,code,qty,user.username,'Nhập lô '+lot);SpreadsheetApp.flush();return {status:'success',importId:id};}finally{lock.releaseLock();}}
+
+function createIssue(token,p){const user=requireRole_(token,[ROLES.ADMIN,ROLES.DISPENSER]);const lock=LockService.getScriptLock();lock.waitLock(30000);try{return createIssueLocked_(user,p);}finally{lock.releaseLock();}}
+function createIssueLocked_(user,p){
+  const code=String(p.code||'').trim(),qty=Number(p.quantity),receiver=String(p.receiver||'').trim(),dept=String(p.department||'').trim(),note=String(p.note||'').trim();
+  if(!code||!Number.isFinite(qty)||qty<=0||!receiver||!dept)throw new Error('Sản phẩm, số lượng, người nhận và bộ phận là bắt buộc.');
+  if(user.role===ROLES.DISPENSER && user.department && user.department!==dept)throw new Error('Bạn chỉ được cấp phát cho bộ phận '+user.department+'.');
+  const product=getProducts_().find(x=>x.code===code);if(!product||product.status==='INACTIVE')throw new Error('Sản phẩm không tồn tại hoặc đang INACTIVE.');
+  const sh=ss_().getSheetByName(SHEETS.IMPORTS.name),m=headerMap_(sh),vals=sh.getDataRange().getValues(),batches=[];
+  for(let i=1;i<vals.length;i++){const r=vals[i],c=String(r[m['Mã SP']-1]||'').trim(),remaining=Number(r[m['Số lượng còn']-1])||0;if(c!==code||remaining<=0)continue;const expiry=parseDate_(r[m['Hạn sử dụng']-1]);if(!expiry||expiry.getTime()<Date.now())continue;batches.push({row:i+1,lot:String(r[m['Số lô']-1]||''),remaining,expiry,importDate:parseDate_(r[m['Ngày nhập']-1])||new Date(0),unitPrice:Number(r[m['Đơn giá']-1])||0});}
+  batches.sort((a,b)=>a.expiry-b.expiry||a.importDate-b.importDate);const available=batches.reduce((s,b)=>s+b.remaining,0);if(available<qty)throw new Error('Không đủ tồn khả dụng. Hiện còn '+available+'.');
+  let need=qty;const alloc=[];for(const b of batches){if(need<=0)break;const q=Math.min(need,b.remaining);alloc.push({...b,quantity:q});need-=q;}
+  alloc.forEach(a=>sh.getRange(a.row,m['Số lượng còn']).setValue(a.remaining-a.quantity));
+  const id=makeId_('PX'),now=now_(),out=ss_().getSheetByName(SHEETS.EXPORTS.name),om=headerMap_(out);const row=[id,now,code,product.name,qty,receiver,dept,user.username,note,'LOCKED',now,user.username];out.getRange(out.getLastRow()+1,1,1,row.length).setValues([row]);
+  const detail=ss_().getSheetByName(SHEETS.DETAILS.name),dm=headerMap_(detail);if(alloc.length)detail.getRange(detail.getLastRow()+1,1,alloc.length,7).setValues(alloc.map(a=>[id,code,product.name,a.lot,a.expiry,a.quantity,a.unitPrice]));
+  audit_(user,'CẤP PHÁT - KHÓA PHIẾU',id,code,qty,user.username,'Phiếu đã khóa ngay sau khi cấp phát cho '+receiver+' - '+dept);
+  SpreadsheetApp.flush();return {status:'success',issueId:id,status:'LOCKED',allocations:alloc.map(a=>({lot:a.lot,expiry:formatDateTime_(a.expiry),quantity:a.quantity}))};
 }
 
-function doPost(e){
-  try{
-    const payload=JSON.parse((e.postData&&e.postData.contents)||'{}');
-    const action=payload.action, ss=getSpreadsheet_(); ensureSystemSheets_(ss);
-    if(action==='setupSheets'){setupThuocSheets();return json_({status:'success',message:'Đã setup các tab.'});}
-    if(action==='createProduct') return json_(createProduct_(ss,payload));
-    if(action==='updateProduct') return json_(updateProduct_(ss,payload));
-    if(action==='deleteProduct') return json_(deleteProduct_(ss,payload));
-    if(action==='createImport') return json_(createImport_(ss,payload));
-    if(action==='exportFIFO'||action==='exportFEFO') return json_(exportMedicine_(ss,payload));
-    return json_({status:'error',message:'Action không được hỗ trợ.'});
-  }catch(err){return json_({status:'error',message:err&&err.message?err.message:String(err)});}
-}
+function getIssueDetails(token,issueId){requireAuth_(token);issueId=String(issueId||'').trim();if(!issueId)throw new Error('Thiếu mã phiếu.');const rows=rows_(SHEETS.DETAILS.name).filter(r=>String(r['Mã phiếu cấp phát'])===issueId);return {status:'success',rows};}
 
-function validateProduct_(p){
-  const code=String(p.code||'').trim(), name=String(p.name||'').trim(), unit=String(p.unit||'').trim(), group=String(p.group||'').trim();
-  const cost=Number(p.cost||0), price=Number(p.price||0), minimum=Number(p.minimum||0);
-  if(!code||!name) throw new Error('Mã SP và tên sản phẩm là bắt buộc.');
-  if(!unit) throw new Error('Vui lòng chọn đơn vị.');
-  if(!group) throw new Error('Vui lòng chọn nhóm thuốc.');
-  if(!Number.isFinite(cost)||cost<0||!Number.isFinite(price)||price<0||!Number.isFinite(minimum)||minimum<0) throw new Error('Giá và tồn tối thiểu không hợp lệ.');
-  return {code,name,activeIngredient:String(p.activeIngredient||'').trim(),unit,group,cost,price,minimum,status:String(p.status||'ACTIVE').toUpperCase()==='INACTIVE'?'INACTIVE':'ACTIVE',note:String(p.note||'').trim()};
-}
-function createProduct_(ss,p){
-  const product=validateProduct_(p), sh=ss.getSheetByName('Sản phẩm'), rows=getSheetData_(ss,'Sản phẩm');
-  if(rows.some(r=>String(r['Mã SP']).trim()===product.code)) throw new Error('Mã SP đã tồn tại.');
-  sh.appendRow([product.code,product.name,product.activeIngredient,product.unit,product.group,product.cost,product.price,product.minimum,product.status,product.note]);
-  audit_(ss,'TẠO SẢN PHẨM','',product.code,'',p.performer||'Admin','Tạo sản phẩm '+product.name);
-  return {status:'success',message:'Đã tạo sản phẩm.',product:product};
-}
-function updateProduct_(ss,p){
-  const product=validateProduct_(p), sh=ss.getSheetByName('Sản phẩm'), values=sh.getDataRange().getValues(), oldCode=String(p.oldCode||product.code).trim();
-  let rowIndex=-1;
-  for(let i=1;i<values.length;i++) if(String(values[i][0]).trim()===oldCode){rowIndex=i+1;break;}
-  if(rowIndex<0) throw new Error('Không tìm thấy sản phẩm.');
-  if(oldCode!==product.code && values.slice(1).some(r=>String(r[0]).trim()===product.code)) throw new Error('Mã SP mới đã tồn tại.');
-  sh.getRange(rowIndex,1,1,10).setValues([[product.code,product.name,product.activeIngredient,product.unit,product.group,product.cost,product.price,product.minimum,product.status,product.note]]);
-  audit_(ss,'CẬP NHẬT SẢN PHẨM','',product.code,'',p.performer||'Admin','Cập nhật sản phẩm');
-  return {status:'success',message:'Đã cập nhật sản phẩm.'};
-}
-function deleteProduct_(ss,p){
-  const code=String(p.code||'').trim(); if(!code)throw new Error('Thiếu mã SP.');
-  const sh=ss.getSheetByName('Sản phẩm'), values=sh.getDataRange().getValues(); let idx=-1;
-  for(let i=1;i<values.length;i++) if(String(values[i][0]).trim()===code){idx=i+1;break;}
-  if(idx<0)throw new Error('Không tìm thấy sản phẩm.');
-  const imports=getSheetData_(ss,'Nhập kho');
-  if(imports.some(r=>String(r['Mã SP']).trim()===code && Number(r['Số lượng còn'])>0)) throw new Error('Không thể xóa: sản phẩm vẫn còn tồn kho. Hãy chuyển trạng thái INACTIVE.');
-  sh.deleteRow(idx); audit_(ss,'XÓA SẢN PHẨM','',code,'',p.performer||'Admin','Xóa sản phẩm');
-  return {status:'success',message:'Đã xóa sản phẩm.'};
-}
+function validateProduct_(p){const code=String(p.code||'').trim().toUpperCase(),name=String(p.name||'').trim(),unit=String(p.unit||'').trim(),group=String(p.group||'').trim(),cost=Number(p.cost||0),price=Number(p.price||0),minimum=Number(p.minimum||0);if(!code||!name||!unit||!group)throw new Error('Mã SP, tên, đơn vị và nhóm thuốc là bắt buộc.');if(![cost,price,minimum].every(Number.isFinite)||cost<0||price<0||minimum<0)throw new Error('Giá và tồn tối thiểu không hợp lệ.');return {code,name,activeIngredient:String(p.activeIngredient||'').trim(),unit,group,cost,price,minimum,status:String(p.status||'ACTIVE').toUpperCase()==='INACTIVE'?'INACTIVE':'ACTIVE',note:String(p.note||'').trim()};}
+function parseDate_(v){if(v instanceof Date&&!isNaN(v))return v;if(v===null||v===undefined||v==='')return null;const s=String(v).trim(),m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);if(m)return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]||0),Number(m[5]||0));const d=new Date(s);return isNaN(d)?null:d;}
+function makeId_(prefix){return prefix+'-'+Utilities.formatDate(now_(),tz_(),'yyyyMMdd-HHmmss')+'-'+Utilities.getUuid().slice(0,6).toUpperCase();}
 
-function parseDate_(v){
-  if(v instanceof Date && !isNaN(v))return v;
-  if(v===null||v===undefined||v==='')return null;
-  const s=String(v).trim();
-  let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T](\d{1,2}):(\d{2}))?$/);
-  if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0));
-  const d=new Date(s); return isNaN(d)?null:d;
-}
-function createImport_(ss,p){
-  const lock=LockService.getScriptLock(); lock.waitLock(30000);
-  try{
-    const code=String(p.code||'').trim(), lot=String(p.lot||'').trim(), supplier=String(p.supplier||'').trim(), performer=String(p.performer||'Admin').trim();
-    const qty=Number(p.quantity), price=Number(p.price||0), importDate=parseDate_(p.importDate)||new Date(), expiry=parseDate_(p.expiry);
-    if(!code||!lot)throw new Error('Mã SP và số lô là bắt buộc.');
-    if(!Number.isFinite(qty)||qty<=0)throw new Error('Số lượng nhập phải lớn hơn 0.');
-    if(!Number.isFinite(price)||price<0)throw new Error('Đơn giá không hợp lệ.');
-    if(!expiry)throw new Error('Vui lòng nhập hạn sử dụng.');
-    if(expiry.getTime()<importDate.getTime())throw new Error('Hạn sử dụng không được trước ngày nhập.');
-    const products=getSheetData_(ss,'Sản phẩm'), product=products.find(r=>String(r['Mã SP']).trim()===code);
-    if(!product)throw new Error('Không tìm thấy sản phẩm '+code+'. Hãy tạo sản phẩm trước.');
-    if(String(product['Trạng thái']).toUpperCase()==='INACTIVE')throw new Error('Sản phẩm đang INACTIVE.');
-    const imports=getSheetData_(ss,'Nhập kho');
-    if(imports.some(r=>String(r['Mã SP']).trim()===code&&String(r['Số lô']).trim()===lot&&String(r['Hạn sử dụng'])===String(expiry))){}
-    const now=new Date(), id=makeId_('PN',now);
-    ss.getSheetByName('Nhập kho').appendRow([id,importDate,code,product['Tên sản phẩm']||'',lot,qty,qty,expiry,price,supplier,performer,String(p.note||'').trim()]);
-    audit_(ss,'NHẬP KHO',id,code,qty,performer,'Nhập lô '+lot);
-    SpreadsheetApp.flush();
-    return {status:'success',message:'Nhập kho thành công.',importId:id};
-  }finally{lock.releaseLock();}
-}
+function getProducts_(){return rows_(SHEETS.PRODUCTS.name).map(r=>({code:String(r['Mã SP']||''),name:String(r['Tên sản phẩm']||''),activeIngredient:String(r['Hoạt chất']||''),unit:String(r['Đơn vị']||''),group:String(r['Nhóm thuốc']||''),cost:Number(r['Giá nhập'])||0,price:Number(r['Giá xuất'])||0,minimum:Number(r['Tồn tối thiểu'])||0,status:String(r['Trạng thái']||'ACTIVE'),note:String(r['Ghi chú']||'')}));}
+function getStock_(){const products=getProducts_(),imports=rows_(SHEETS.IMPORTS.name),map={};imports.forEach(r=>{const c=String(r['Mã SP']||'').trim();if(!c)return;if(!map[c])map[c]={quantity:0,batches:0};map[c].quantity+=Number(r['Số lượng còn'])||0;map[c].batches++;});return products.map(p=>{const s=map[p.code]||{quantity:0,batches:0};return {...p,quantity:s.quantity,batches:s.batches};});}
+function getExports_(){return rows_(SHEETS.EXPORTS.name).map(r=>({...r,['Trạng thái']:String(r['Trạng thái']||'LOCKED')}));}
+function getDashboard_(){const products=getProducts_(),imports=rows_(SHEETS.IMPORTS.name),exports=getExports_(),stockMap={};let total=0,value=0,low=0,expired=0,soon=0;imports.forEach(r=>{const c=String(r['Mã SP']||'').trim(),q=Number(r['Số lượng còn'])||0,p=Number(r['Đơn giá'])||0;if(!c)return;stockMap[c]=(stockMap[c]||0)+q;total+=q;value+=q*p;const e=parseDate_(r['Hạn sử dụng']);if(q>0&&e){const days=(e-Date.now())/86400000;if(days<0)expired++;else if(days<=30)soon++;}});products.forEach(p=>{if(p.minimum>0&&(stockMap[p.code]||0)<=p.minimum)low++;});const key=Utilities.formatDate(now_(),tz_(),'yyyy-MM-dd'),today=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&Utilities.formatDate(d,tz_(),'yyyy-MM-dd')===key;});return {products:products.length,totalStock:total,stockValue:value,todayOrders:today.length,todayExportQty:today.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),lowStock:low,expired,expiringSoon:soon,recentActivities:exports.slice(-10).reverse()};}
+function getReport_(p){const exports=getExports_(),products=getProducts_(),month=String(p.month||Utilities.formatDate(now_(),tz_(),'yyyy-MM')),dept=String(p.department||'').trim(),code=String(p.code||'').trim(),start=new Date(month+'-01T00:00:00'),end=new Date(start);end.setMonth(end.getMonth()+1);const rows=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&d>=start&&d<end&&(!dept||String(r['Bộ phận']).trim()===dept)&&(!code||String(r['Mã SP']).trim()===code);}),bd={},bp={};rows.forEach(r=>{const d=String(r['Bộ phận']||'Không xác định'),c=String(r['Mã SP']||''),q=Number(r['Tổng số lượng'])||0;bd[d]=(bd[d]||0)+q;bp[c]=(bp[c]||0)+q;});const names={};products.forEach(p=>names[p.code]=p.name);return {month,department:dept,product:code,orders:rows.length,quantity:rows.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),departments:Object.keys(bd).sort().map(k=>({department:k,quantity:bd[k]})),products:Object.keys(bp).sort((a,b)=>bp[b]-bp[a]).map(k=>({code:k,name:names[k]||k,quantity:bp[k]})),rows:rows.slice().reverse()};}
 
-function exportMedicine_(ss,p){
-  const lock=LockService.getScriptLock(); lock.waitLock(30000);
-  try{
-    const code=String(p.code||'').trim(), quantity=Number(p.quantity), receiver=String(p.receiver||'').trim(), department=String(p.department||'').trim(), performer=String(p.performer||'Admin').trim(), note=String(p.note||'').trim();
-    if(!code)throw new Error('Chưa chọn sản phẩm.'); if(!Number.isFinite(quantity)||quantity<=0)throw new Error('Số lượng cấp phát phải lớn hơn 0.'); if(!receiver)throw new Error('Chưa nhập người nhận.'); if(!department)throw new Error('Chưa nhập bộ phận.');
-    const products=getSheetData_(ss,'Sản phẩm'), product=products.find(r=>String(r['Mã SP']).trim()===code);
-    if(!product)throw new Error('Không tìm thấy sản phẩm.'); if(String(product['Trạng thái']).toUpperCase()==='INACTIVE')throw new Error('Sản phẩm đang INACTIVE.');
-    const sh=ss.getSheetByName('Nhập kho'), values=sh.getDataRange().getValues(), batches=[];
-    for(let i=1;i<values.length;i++){
-      const row=values[i], rowCode=String(row[2]||'').trim(), remaining=Number(row[6])||0; if(rowCode!==code||remaining<=0)continue;
-      const expiry=parseDate_(row[7]); if(!expiry||expiry.getTime()<Date.now())continue;
-      batches.push({rowIndex:i+1,importDate:parseDate_(row[1])||new Date(8640000000000000),lot:String(row[4]||''),remaining,expiry,unitPrice:Number(row[8])||0});
-    }
-    batches.sort((a,b)=>a.expiry-b.expiry||a.importDate-b.importDate);
-    const total=batches.reduce((s,b)=>s+b.remaining,0); if(total<quantity)throw new Error('Không đủ tồn kho. Tồn khả dụng: '+total+'.');
-    let need=quantity; const allocations=[];
-    for(const b of batches){if(need<=0)break;const q=Math.min(need,b.remaining);allocations.push({...b,quantity:q});need-=q;}
-    allocations.forEach(a=>sh.getRange(a.rowIndex,7).setValue(a.remaining-a.quantity));
-    const now=new Date(), id=makeId_('PX',now), out=ss.getSheetByName('Xuất kho'), detail=ss.getSheetByName('Chi tiết cấp phát');
-    out.appendRow([id,now,code,product['Tên sản phẩm']||'',quantity,receiver,department,performer,note]);
-    if(allocations.length) detail.getRange(detail.getLastRow()+1,1,allocations.length,7).setValues(allocations.map(a=>[id,code,product['Tên sản phẩm']||'',a.lot,a.expiry,a.quantity,a.unitPrice]));
-    audit_(ss,'CẤP PHÁT',id,code,quantity,performer,'Cấp phát cho '+receiver+' - '+department);
-    SpreadsheetApp.flush();
-    return {status:'success',message:'Cấp phát thành công.',exportId:id,allocations:allocations.map(a=>({lot:a.lot,expiry:formatDate_(a.expiry),quantity:a.quantity}))};
-  }finally{lock.releaseLock();}
-}
-
-function getDashboard_(ss){
-  const products=getSheetData_(ss,'Sản phẩm'), imports=getSheetData_(ss,'Nhập kho'), exports=getSheetData_(ss,'Xuất kho'), stockMap={};
-  let totalStock=0,stockValue=0,lowStock=0,expired=0,expiringSoon=0;
-  imports.forEach(r=>{const c=String(r['Mã SP']||'').trim(),q=Number(r['Số lượng còn'])||0,price=Number(r['Đơn giá'])||0;if(!c)return;stockMap[c]=(stockMap[c]||0)+q;totalStock+=q;stockValue+=q*price;const ex=parseDate_(r['Hạn sử dụng']);if(q>0&&ex){const days=(ex-Date.now())/86400000;if(days<0)expired++;else if(days<=30)expiringSoon++;}});
-  products.forEach(p=>{const min=Number(p['Tồn tối thiểu'])||0;if(min>0&&(stockMap[String(p['Mã SP']).trim()]||0)<=min)lowStock++;});
-  const todayKey=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd');
-  const todayExports=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd')===todayKey;});
-  return {status:'success',products:products.length,totalStock,stockValue,todayOrders:todayExports.length,todayExportQty:todayExports.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),lowStock,expired,expiringSoon,recentActivities:exports.slice(-10).reverse(),imports,catalog:getSheetData_(ss,'Danh mục'),audit:getSheetData_(ss,'AuditLog')};
-}
-function getStock_(ss){
-  const products=getSheetData_(ss,'Sản phẩm'), imports=getSheetData_(ss,'Nhập kho'), stock={};
-  imports.forEach(r=>{const c=String(r['Mã SP']||'').trim();if(!c)return;if(!stock[c])stock[c]={quantity:0,batches:0};stock[c].quantity+=Number(r['Số lượng còn'])||0;stock[c].batches++;});
-  return products.map(p=>{const c=String(p['Mã SP']).trim(),s=stock[c]||{quantity:0,batches:0};return {code:p['Mã SP'],name:p['Tên sản phẩm'],unit:p['Đơn vị'],minimum:Number(p['Tồn tối thiểu'])||0,quantity:s.quantity,batches:s.batches,status:p['Trạng thái']||'ACTIVE'};});
-}
-function getReport_(ss,p){
-  const exports=getSheetData_(ss,'Xuất kho'), products=getSheetData_(ss,'Sản phẩm'), details=getSheetData_(ss,'Chi tiết cấp phát');
-  const month=String(p.month||Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM')), dept=String(p.department||'').trim(), code=String(p.code||'').trim();
-  const start=new Date(month+'-01T00:00:00'), end=new Date(start); end.setMonth(end.getMonth()+1);
-  const rows=exports.filter(r=>{const d=parseDate_(r['Thời gian']);return d&&d>=start&&d<end&&(!dept||String(r['Bộ phận']).trim()===dept)&&(!code||String(r['Mã SP']).trim()===code);});
-  const byDept={},byProduct={}; rows.forEach(r=>{const d=String(r['Bộ phận']||'Không xác định'),c=String(r['Mã SP']||'');const q=Number(r['Tổng số lượng'])||0;byDept[d]=(byDept[d]||0)+q;byProduct[c]=(byProduct[c]||0)+q;});
-  const detailMap={}; details.forEach(r=>{const id=String(r['Mã phiếu cấp phát']);detailMap[id]=(detailMap[id]||0)+(Number(r['Số lượng xuất'])||0);});
-  const productName={};products.forEach(r=>productName[String(r['Mã SP'])]=r['Tên sản phẩm']);
-  return {status:'success',month,department:dept,product:code,orders:rows.length,quantity:rows.reduce((s,r)=>s+(Number(r['Tổng số lượng'])||0),0),departments:Object.keys(byDept).sort().map(k=>({department:k,quantity:byDept[k]})),products:Object.keys(byProduct).sort((a,b)=>byProduct[b]-byProduct[a]).map(k=>({code:k,name:productName[k]||k,quantity:byProduct[k]})),rows:rows.slice().reverse()};
-}
-function getSheetData_(ss,name){
-  const sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()<2)return [];
-  const data=sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getValues(), headers=data[0].map(h=>String(h).trim());
-  return data.slice(1).filter(r=>r.some(v=>v!=='')).map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]);return o;});
-}
-function audit_(ss,action,id,code,qty,performer,note){ss.getSheetByName('AuditLog').appendRow([new Date(),action,id,code,qty,performer,note,'']);}
-function makeId_(prefix,d){return prefix+'-'+Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyyMMdd-HHmmss')+'-'+Utilities.getUuid().slice(0,6).toUpperCase();}
-function formatDate_(d){return d?Utilities.formatDate(d,Session.getScriptTimeZone(),'dd/MM/yyyy'):'';}
-function serialize_(data){return JSON.stringify(data,(_,v)=>v instanceof Date?Utilities.formatDate(v,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):v);}
-function json_(data){return ContentService.createTextOutput(serialize_(data)).setMimeType(ContentService.MimeType.JSON);}
-function respond_(data,callback){
-  const body=serialize_(data);
-  if(callback && /^[A-Za-z_$][0-9A-Za-z_$]*(?:\.[A-Za-z_$][0-9A-Za-z_$]*)*$/.test(callback)){
-    return ContentService.createTextOutput(callback+'('+body+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
-  }
-  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
-}
+function rows_(sheetName){const sh=ss_().getSheetByName(sheetName);if(!sh||sh.getLastRow()<2)return [];const data=sh.getDataRange().getValues(),headers=data[0].map(x=>String(x).trim());return data.slice(1).filter(r=>r.some(v=>v!==''&&v!==null)).map(r=>{const o={};headers.forEach((h,i)=>o[h]=serialize_(r[i]));return o;});}
+function serialize_(v){return v instanceof Date?Utilities.formatDate(v,tz_(),'yyyy-MM-dd HH:mm:ss'):v;}
+function headerMap_(sh){const a=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0],m={};a.forEach((h,i)=>{if(String(h).trim())m[String(h).trim()]=i+1;});return m;}
+function audit_(actor,action,id,code,qty,performer,note){const sh=ss_().getSheetByName(SHEETS.AUDIT.name);sh.appendRow([now_(),action,id,code,qty,performer,note,'']);}
+function requireAuth_(token){if(!token)throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');const raw=CacheService.getScriptCache().get('SESSION_'+token);if(!raw)throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');return JSON.parse(raw);}
+function requireRole_(token,roles){const u=requireAuth_(token);if(roles.indexOf(u.role)<0)throw new Error('Bạn không có quyền thực hiện thao tác này.');return u;}
+function formatDateTime_(d){return d?Utilities.formatDate(d,tz_(),'dd/MM/yyyy HH:mm'):'';}
